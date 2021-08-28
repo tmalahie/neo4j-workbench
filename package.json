@@ -5,18 +5,25 @@
   "main": "electron/main.ts",
   "scripts": {
     "electron": "electron .",
+    "prepare": "smui-theme compile build/smui.css -i src/theme",
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
+    "@smui/common": "^4.2.0",
+    "@smui/drawer": "^4.2.0",
+    "@smui/list": "^4.2.0",
     "@sveltejs/vite-plugin-svelte": "^1.0.0-next.11",
     "@tsconfig/svelte": "^2.0.1",
     "electron": "^13.2.3",
+    "sass": "^1.38.2",
     "svelte": "^3.37.0",
     "svelte-check": "^2.1.0",
+    "svelte-material-ui": "^4.2.0",
     "svelte-preprocess": "^4.7.2",
+    "svelte-spa-router": "^3.2.0",
     "tslib": "^2.2.0",
     "typescript": "^4.3.2",
     "vite": "^2.5.1"
