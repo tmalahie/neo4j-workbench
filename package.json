@@ -2,7 +2,9 @@
   "name": "neo4j-workbench",
   "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.ts",
   "scripts": {
+    "electron": "electron .",
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
@@ -11,6 +13,7 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^1.0.0-next.11",
     "@tsconfig/svelte": "^2.0.1",
+    "electron": "^13.2.3",
     "svelte": "^3.37.0",
     "svelte-check": "^2.1.0",
     "svelte-preprocess": "^4.7.2",
