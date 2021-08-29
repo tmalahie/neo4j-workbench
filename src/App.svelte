@@ -1,11 +1,10 @@
 <script lang="ts">
-  import Drawer, { Content } from "@smui/drawer";
-  import List, { Text } from "@smui/list";
+  if (!window.require) window.require = (() => ({})) as any;
   import Router from "svelte-spa-router";
   import Home from "./routes/Home.svelte";
   import Connection from "./routes/Connection.svelte";
   import NotFound from "./routes/NotFound.svelte";
-  import RouterItem from "./components/RouterItem.svelte";
+  import { Accordion, Icon } from "sveltestrap";
 
   const routes = {
     "/": Home,
@@ -15,19 +14,13 @@
 </script>
 
 <main class="App">
-  <div class="drawer-container">
-    <Drawer class="drawer">
-      <Content>
-        <List>
-          <RouterItem href="/">
-            <Text>Home</Text>
-          </RouterItem>
-          <RouterItem href="/connection">
-            <Text>Connection</Text>
-          </RouterItem>
-        </List>
-      </Content>
-    </Drawer>
+  <div class="drawer">
+    <Accordion>
+      <a class="accordion-item" href="#/"><Icon name="house-door" /> Home</a>
+      <a class="accordion-item" href="#/connection"
+        ><Icon name="box" /> Connection</a
+      >
+    </Accordion>
   </div>
   <div class="body">
     <Router {routes} />
@@ -35,6 +28,9 @@
 </main>
 
 <style lang="scss">
+  @import "node_modules/bootstrap/scss/functions";
+  @import "node_modules/bootstrap/scss/variables";
+
   :global(body) {
     margin: 0;
     padding: 0;
@@ -43,12 +39,21 @@
     display: flex;
     height: 100vh;
 
-    .drawer-container {
+    .drawer {
+      width: 9em;
       height: 100%;
       overflow-y: auto;
-
-      :global(.drawer) {
-        width: 8em;
+      :global(.accordion-item) {
+        padding: 0.5em 1em;
+      }
+      :global(.accordion) {
+        height: 100%;
+        border-right: 1px solid rgba(0, 0, 0, 0.125);
+      }
+      a {
+        display: block;
+        color: $dark;
+        text-decoration: none;
       }
     }
     .body {
