@@ -1,5 +1,4 @@
 <script lang="ts">
-  if (!window.require) window.require = (() => ({})) as any;
   import Router from "svelte-spa-router";
   import Home from "./routes/Home.svelte";
   import Connection from "./routes/Connection.svelte";

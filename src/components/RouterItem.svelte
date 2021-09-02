@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { Item } from "@smui/list";
   import { push } from "svelte-spa-router";
 
   export let href;
@@ -11,7 +10,7 @@
 </script>
 
 <main>
-  <Item href={`#${href}`} on:click={handleClick}><slot /></Item>
+  <a href={`#${href}`} on:click={handleClick}><slot /></a>
 </main>
 
 <style lang="scss">

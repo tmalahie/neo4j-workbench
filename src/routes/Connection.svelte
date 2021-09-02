@@ -6,19 +6,16 @@
     InputGroup,
     InputGroupText,
   } from "sveltestrap";
-
-  const { ipcRenderer } = require("electron");
+  import { sendData } from "../helpers/bridge";
 
   let host = "bolt://localhost:7687",
     login = "neo4j",
     password = "admin",
     db = "neo4j";
 
-  function handleSubmit() {
-    ipcRenderer.once("connectionReply", (_event: any, response: string) => {
-      alert(response);
-    });
-    ipcRenderer.send("testConnection", { host, login, password, db });
+  async function handleSubmit() {
+    const res = await sendData("testConnection", { host, login, password, db });
+    alert(res);
   }
 </script>
 

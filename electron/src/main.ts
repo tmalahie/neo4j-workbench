@@ -1,7 +1,8 @@
 // Modules to control application life and create native browser window
-const { app, BrowserWindow } = require('electron')
-const { ipcMain } = require('electron');
-const neo4jConnector = require('neo4j-driver');
+import { app, BrowserWindow } from "electron";
+import neo4jConnector from "neo4j-driver";
+
+import { addActionListener } from "./utils";
 
 function createWindow() {
   // Create the browser window.
@@ -35,24 +36,20 @@ app.whenReady().then(() => {
   })
 })
 
-ipcMain.on('testConnection', (event, { host, login, password, db }) => {
-  async function testConnection() {
-    try {
-      const driver = neo4jConnector.driver(host, neo4jConnector.auth.basic(login, password))
-      const session = driver.session({
-        database: db
-      });
-      await session.run(
-        'RETURN 1'
-      );
-    }
-    catch (e) {
-      event.sender.send('connectionReply', "Failed to connect: " + e);
-      return;
-    }
-    event.sender.send('connectionReply', "Connection succeeded");
+addActionListener("testConnection", async function ({ host, login, password, db }) {
+  try {
+    const driver: any = neo4jConnector.driver(host, neo4jConnector.auth.basic(login, password))
+    const session = driver.session({
+      database: db
+    });
+    await session.run(
+      'RETURN 1'
+    );
   }
-  testConnection();
+  catch (e) {
+    return "Failed to connect: " + e;
+  }
+  return "Connection succeeded";
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
