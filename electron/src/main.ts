@@ -1,6 +1,8 @@
 // Modules to control application life and create native browser window
 import { app, BrowserWindow } from "electron";
 import neo4jConnector from "neo4j-driver";
+import type { DBConnectionParams } from "./types/db";
+import * as storage from "electron-json-storage";
 
 import { addActionListener } from "./utils";
 
@@ -36,9 +38,9 @@ app.whenReady().then(() => {
   })
 })
 
-addActionListener("testConnection", async function ({ host, login, password, db }) {
+addActionListener("testConnection", async ({ host, login, password, db }: DBConnectionParams) => {
   try {
-    const driver: any = neo4jConnector.driver(host, neo4jConnector.auth.basic(login, password))
+    const driver = neo4jConnector.driver(host, neo4jConnector.auth.basic(login, password))
     const session = driver.session({
       database: db
     });
@@ -51,6 +53,22 @@ addActionListener("testConnection", async function ({ host, login, password, db 
   }
   return "Connection succeeded";
 })
+
+addActionListener("getItem", ({ key, defaultVal }) => new Promise((resolve) => {
+  storage.has(key, (_error, hasKey) => resolve(hasKey));
+}).then((hasKey) => new Promise((resolve) => {
+  if (!hasKey)
+    resolve(defaultVal);
+  storage.get(key, (_error, data) => resolve(data));
+})))
+
+addActionListener("setItem", ({ key, value }) => new Promise((resolve) => {
+  storage.set(key, value, () => resolve(null));
+}))
+
+addActionListener("deleteItem", ({ key, value }) => new Promise((resolve) => {
+  storage.remove(key, () => resolve(null));
+}))
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

@@ -1,13 +1,13 @@
 <script lang="ts">
   import Router from "svelte-spa-router";
   import Home from "./routes/Home.svelte";
-  import Connection from "./routes/Connection.svelte";
   import NotFound from "./routes/NotFound.svelte";
   import { Accordion, Icon } from "sveltestrap";
+  import Connections from "./routes/Connections.svelte";
 
   const routes = {
     "/": Home,
-    "/connection": Connection,
+    "/connections": Connections,
     "*": NotFound,
   };
 </script>
