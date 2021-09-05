@@ -7,6 +7,7 @@
 
   import { Button, Icon, ListGroup, ListGroupItem, Spinner } from "sveltestrap";
   import { onMount } from "svelte";
+  import Bootbox, { bootbox } from "src/components/Bootbox.svelte";
 
   let connections: DBConnectionParams[];
   let addingConnection = false;
@@ -30,7 +31,7 @@
     await setItem("connections", connections);
   }
   async function handleConnectionDelete(connection: DBConnectionParams) {
-    if (confirm(`Delete the connection "${connection.name}"?`)) {
+    if (await bootbox.confirm(`Delete the connection "${connection.name}"?`)) {
       connections = connections.filter((conn) => conn.id !== connection.id);
       await setItem("connections", connections);
     }

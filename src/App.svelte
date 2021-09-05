@@ -4,6 +4,7 @@
   import NotFound from "./routes/NotFound.svelte";
   import { Accordion, Icon } from "sveltestrap";
   import Connections from "./routes/Connections.svelte";
+  import Bootbox from "./components/Bootbox.svelte";
 
   const routes = {
     "/": Home,
@@ -23,6 +24,7 @@
   </div>
   <div class="body">
     <Router {routes} />
+    <Bootbox />
   </div>
 </main>
 
