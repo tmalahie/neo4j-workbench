@@ -3,6 +3,7 @@ lockfileVersion: 5.3
 specifiers:
   '@sveltejs/vite-plugin-svelte': ^1.0.0-next.11
   '@tsconfig/svelte': ^2.0.1
+  bootbox-svelte: ^1.0.6
   bootstrap: ^5.1.0
   sass: ^1.38.2
   svelte: ^3.37.0
@@ -23,6 +24,7 @@ dependencies:
 devDependencies:
   '@sveltejs/vite-plugin-svelte': 1.0.0-next.19_svelte@3.42.4+vite@2.5.1
   '@tsconfig/svelte': 2.0.1
+  bootbox-svelte: 1.0.6_svelte@3.42.4
   sass: 1.38.2
   svelte: 3.42.4
   svelte-check: 2.2.5_sass@1.38.2+svelte@3.42.4
@@ -36,7 +38,6 @@ packages:
 
   /@popperjs/core/2.9.3:
     resolution: {integrity: sha512-xDu17cEfh7Kid/d95kB6tZsLOmSWKCZKtprnhVepjsSaCij+lM3mItSJDuuHDMbCWTh8Ejmebwb+KONcCJ0eXQ==}
-    dev: false
 
   /@rollup/pluginutils/4.1.1:
     resolution: {integrity: sha512-clDjivHqWGXi7u+0d2r2sBi4Ie6VLEAzWMIkvJLnDmxoOhBYOTfzGbOQBA32THHm11/LiJbd01tJUpJsbshSWQ==}
@@ -109,6 +110,14 @@ packages:
   /binary-extensions/2.2.0:
     resolution: {integrity: sha512-jDctJ/IVQbZoJykoeHbhXpOlNBqGNcwXJKJog42E5HDPUwQTSdjCHdihjj0DlnheQ7blbT6dHOafNAiS8ooQKA==}
     engines: {node: '>=8'}
+    dev: true
+
+  /bootbox-svelte/1.0.6_svelte@3.42.4:
+    resolution: {integrity: sha512-FxHoZXDRYKv6eLuligWk4K+cTfk4ZlqNKDi7X6nYLzPzJLvQ09kQx0wZR3wKWUcifYChXnpn2gULmMrCL/IZhg==}
+    dependencies:
+      sveltestrap: 5.6.2_svelte@3.42.4
+    transitivePeerDependencies:
+      - svelte
     dev: true
 
   /bootstrap/5.1.0:
@@ -573,7 +582,6 @@ packages:
     dependencies:
       '@popperjs/core': 2.9.3
       svelte: 3.42.4
-    dev: false
 
   /to-regex-range/5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}

@@ -7,7 +7,7 @@
 
   import { Button, Icon, ListGroup, ListGroupItem, Spinner } from "sveltestrap";
   import { onMount } from "svelte";
-  import Bootbox, { bootbox } from "src/components/Bootbox.svelte";
+  import { bootbox } from "bootbox-svelte";
 
   let connections: DBConnectionParams[];
   let addingConnection = false;

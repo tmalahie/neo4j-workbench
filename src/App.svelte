@@ -4,7 +4,7 @@
   import NotFound from "./routes/NotFound.svelte";
   import { Accordion, Icon } from "sveltestrap";
   import Connections from "./routes/Connections.svelte";
-  import Bootbox from "./components/Bootbox.svelte";
+  import { Bootbox } from "bootbox-svelte";
 
   const routes = {
     "/": Home,
