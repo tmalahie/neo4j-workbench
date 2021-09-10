@@ -1,35 +1,18 @@
 <script lang="ts">
   import type { DBConnectionParams } from "@common-types/db";
-  import ConnectionModal from "src/components/ConnectionModal.svelte";
   import GoBack from "src/components/GoBack.svelte";
 
   import { getItem, setItem } from "src/helpers/storage";
 
   import { Button, Icon, ListGroup, ListGroupItem, Spinner } from "sveltestrap";
-  import { onMount } from "svelte";
   import { bootbox } from "bootbox-svelte";
+  import Async, { loadData } from "src/components/Async.svelte";
 
-  let connections: DBConnectionParams[];
-  let addingConnection = false;
-  let editingConnection: DBConnectionParams;
-
-  onMount(async () => {
-    connections = await getItem<DBConnectionParams[]>("connections", []);
+  let connectionPayload = loadData<DBConnectionParams[]>(async () => {
+    return await getItem<DBConnectionParams[]>("connections", []);
   });
+  $: connections = $connectionPayload.data;
 
-  async function handleConnectionAdd(connection: DBConnectionParams) {
-    connections = [...connections, connection];
-    await setItem("connections", connections);
-  }
-  async function handleConnectionEdit(connection: DBConnectionParams) {
-    editingConnection = connection;
-  }
-  async function handleConnectionUpdate(newConnection) {
-    connections = connections.map((conn) =>
-      conn.id === editingConnection.id ? newConnection : conn
-    );
-    await setItem("connections", connections);
-  }
   async function handleConnectionDelete(connection: DBConnectionParams) {
     if (await bootbox.confirm(`Delete the connection "${connection.name}"?`)) {
       connections = connections.filter((conn) => conn.id !== connection.id);
@@ -40,7 +23,7 @@
 
 <main class="Connections">
   <div>
-    {#if connections}
+    <Async payload={$connectionPayload}>
       {#each connections as connection (connection.id)}
         <ListGroup>
           <ListGroupItem
@@ -48,9 +31,8 @@
           >
             <div>{connection.name}</div>
             <div>
-              <Button
-                on:click={() => handleConnectionEdit(connection)}
-                color="primary"><Icon name="pencil" /></Button
+              <Button href={`#/connections/${connection.id}`} color="primary"
+                ><Icon name="pencil" /></Button
               >
               <Button
                 on:click={() => handleConnectionDelete(connection)}
@@ -59,32 +41,19 @@
             </div>
           </ListGroupItem>
         </ListGroup>
-        <ConnectionModal
-          connection={editingConnection}
-          isOpen={editingConnection != null}
-          onClose={() => (editingConnection = null)}
-          onSubmit={handleConnectionUpdate}
-        />
-        {#if addingConnection}
-          <ConnectionModal
-            isOpen={addingConnection}
-            onClose={() => (addingConnection = false)}
-            onSubmit={handleConnectionAdd}
-          />
-        {/if}
       {:else}
         No connections yet
       {/each}
-    {:else}
-      <Spinner />
-    {/if}
+    </Async>
   </div>
-  <div class="mt-2">
-    <Button color="primary" on:click={() => (addingConnection = true)}
-      ><Icon name="plus" /> Add connection</Button
-    >
+  <div class="mt-3">
+    <div class="d-flex justify-content-between align-items-center">
+      <GoBack />
+      <Button color="primary" href="#/connections/new"
+        ><Icon name="plus" /> Add connection</Button
+      >
+    </div>
   </div>
-  <GoBack />
 </main>
 
 <style lang="scss">

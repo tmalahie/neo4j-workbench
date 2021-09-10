@@ -3,12 +3,16 @@
   import Home from "./routes/Home.svelte";
   import NotFound from "./routes/NotFound.svelte";
   import { Accordion, Icon } from "sveltestrap";
+  import Connection from "./routes/Connection.svelte";
   import Connections from "./routes/Connections.svelte";
   import { Bootbox } from "bootbox-svelte";
+  import { link } from "svelte-spa-router";
 
   const routes = {
     "/": Home,
     "/connections": Connections,
+    "/connections/new": Connection,
+    "/connections/:id": Connection,
     "*": NotFound,
   };
 </script>
@@ -16,9 +20,11 @@
 <main class="App">
   <div class="drawer">
     <Accordion>
-      <a class="accordion-item" href="#/"><Icon name="house-door" /> Home</a>
-      <a class="accordion-item" href="#/connection"
-        ><Icon name="box" /> Connection</a
+      <a class="accordion-item" href="/" use:link
+        ><Icon name="house-door" /> Home</a
+      >
+      <a class="accordion-item" href="/connections" use:link
+        ><Icon name="box" /> Connections</a
       >
     </Accordion>
   </div>
@@ -41,7 +47,7 @@
     height: 100vh;
 
     .drawer {
-      width: 9em;
+      width: 10em;
       height: 100%;
       overflow-y: auto;
       :global(.accordion-item) {

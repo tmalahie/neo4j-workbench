@@ -8,7 +8,7 @@
 
   import { Button, FormGroup, Input } from "sveltestrap";
   import { getItem, setItem } from "src/helpers/storage";
-  import GoBack from "src/components/GoBack.svelte";
+  import GoBack, { historyBackWFallback } from "src/components/GoBack.svelte";
   import Async, { loadData } from "src/components/Async.svelte";
   import { bootbox } from "bootbox-svelte";
 
@@ -41,7 +41,7 @@
     } catch (e) {
       bootbox.alert(e.message);
     }
-    saving = false;
+    historyBackWFallback();
   }
   async function createConnection(connectionParams: DBConnectionParams) {
     const connections = await getItem<DBConnectionParams[]>("connections", []);
@@ -117,18 +117,22 @@
         />
       </FormGroup>
       <FormGroup>
-        <Button
-          type="button"
-          color="link"
-          class="mr-auto"
-          disabled={testing}
-          on:click={testConnection}>Test connection...</Button
-        >
-        <Button type="submit" color="primary" disabled={saving}>Ok</Button>
+        <div class="d-flex justify-content-between align-items-center">
+          <GoBack />
+          <div>
+            <Button
+              type="button"
+              color="link"
+              class="mr-auto"
+              disabled={testing}
+              on:click={testConnection}>Test connection...</Button
+            >
+            <Button type="submit" color="primary" disabled={saving}>Ok</Button>
+          </div>
+        </div>
       </FormGroup>
     </form>
   </Async>
-  <GoBack />
 </div>
 
 <style lang="scss">

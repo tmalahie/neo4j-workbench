@@ -1,5 +1,4 @@
 <script lang="ts">
-  import ConnectionModal from "../components/ConnectionModal.svelte";
   import {
     Button,
     Card,
@@ -8,15 +7,6 @@
     CardTitle,
     Icon,
   } from "sveltestrap";
-  import { getItem, setItem } from "src/helpers/storage";
-  import type { DBConnectionParams } from "@common-types/db";
-
-  let openCreateConnectionModal = false;
-  async function handleConnectionAdd(connectionData) {
-    const connections = await getItem<DBConnectionParams[]>("connections", []);
-    connections.push(connectionData);
-    await setItem("connections", connections);
-  }
 </script>
 
 <main class="Home">
@@ -29,9 +19,7 @@
           <CardText
             >Create a new Neo4j connection and start managing your database</CardText
           >
-          <Button
-            color="primary"
-            on:click={() => (openCreateConnectionModal = true)}
+          <Button color="primary" href="#/connections/new"
             ><Icon name="plus" /> Create connection</Button
           >
         </CardBody>
@@ -47,11 +35,6 @@
       </Card>
     </div>
   </div>
-  <ConnectionModal
-    isOpen={openCreateConnectionModal}
-    onClose={() => (openCreateConnectionModal = false)}
-    onSubmit={handleConnectionAdd}
-  />
 </main>
 
 <style lang="scss">
