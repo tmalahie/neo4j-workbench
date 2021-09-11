@@ -13,8 +13,10 @@
 
   let connection: DBConnectionParams;
   $: {
-    if (params.id && !connection?.id)
-      connection = $connections.find((c) => c.id === params.id);
+    if (params.id && !connection?.id) {
+      const conn = $connections.find((c) => c.id === params.id);
+      if (conn) connection = { ...conn };
+    }
     if (!connection) {
       connection = {
         host: "",
