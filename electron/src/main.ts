@@ -39,35 +39,37 @@ app.whenReady().then(() => {
 })
 
 addActionListener("testConnection", async ({ host, login, password, db }: DBConnectionParams) => {
-  try {
-    const driver = neo4jConnector.driver(host, neo4jConnector.auth.basic(login, password))
-    const session = driver.session({
-      database: db
-    });
-    await session.run(
-      'RETURN 1'
-    );
-  }
-  catch (e) {
-    return "Failed to connect: " + e;
-  }
-  return "Connection succeeded";
+  const driver = neo4jConnector.driver(host, neo4jConnector.auth.basic(login, password))
+  const session = driver.session({
+    database: db
+  });
+  await session.run(
+    'RETURN 1'
+  );
 })
 
-addActionListener("getItem", ({ key, defaultVal }) => new Promise((resolve) => {
-  storage.has(key, (_error, hasKey) => resolve(hasKey));
-}).then((hasKey) => new Promise((resolve) => {
+addActionListener("getItem", ({ key, defaultVal }) => new Promise((resolve, reject) => {
+  storage.has(key, (error, hasKey) => {
+    if (error)
+      reject(error);
+    resolve(hasKey);
+  });
+}).then((hasKey) => new Promise((resolve, reject) => {
   if (!hasKey)
     resolve(defaultVal);
-  storage.get(key, (_error, data) => resolve(data));
+  storage.get(key, (error, data) => {
+    if (error)
+      reject(error);
+    resolve(data);
+  });
 })))
 
 addActionListener("setItem", ({ key, value }) => new Promise((resolve) => {
-  storage.set(key, value, () => resolve(null));
+  storage.set(key, value, () => resolve(undefined));
 }))
 
 addActionListener("deleteItem", ({ key, value }) => new Promise((resolve) => {
-  storage.remove(key, () => resolve(null));
+  storage.remove(key, () => resolve(undefined));
 }))
 
 // Quit when all windows are closed, except on macOS. There, it's common

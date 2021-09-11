@@ -53,8 +53,12 @@
   let testing = false;
   async function testConnection() {
     testing = true;
-    const res = await sendData<string>("testConnection", connection);
-    bootbox.alert(res);
+    try {
+      await sendData<string>("testConnection", connection);
+      bootbox.alert("Connection succeeded!");
+    } catch (e) {
+      bootbox.alert(`Connection failed:\n${e?.message}`);
+    }
     testing = false;
   }
 </script>
