@@ -12,15 +12,18 @@
   import connections from "src/stores/connections";
 
   let connection: DBConnectionParams;
-  if (params.id) connection = $connections.find((c) => c.id === params.id);
-  else {
-    connection = {
-      host: "",
-      login: "",
-      password: "",
-      db: "",
-      name: "",
-    };
+  $: {
+    if (params.id && !connection?.id)
+      connection = $connections.find((c) => c.id === params.id);
+    if (!connection) {
+      connection = {
+        host: "",
+        login: "",
+        password: "",
+        db: "",
+        name: "",
+      };
+    }
   }
 
   let saving = false;
