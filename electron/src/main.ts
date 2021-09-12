@@ -1,10 +1,11 @@
 // Modules to control application life and create native browser window
 import { app, BrowserWindow } from "electron";
-import neo4jConnector from "neo4j-driver";
+import neo4jConnector, { Session } from "neo4j-driver";
 import type { DBConnectionParams } from "./types/db";
 import * as storage from "electron-json-storage";
 
 import { addActionListener } from "./utils";
+import { deleteItem, getItem, setItem } from "./storage";
 
 function createWindow() {
   // Create the browser window.
@@ -38,39 +39,50 @@ app.whenReady().then(() => {
   })
 })
 
-addActionListener("testConnection", async ({ host, login, password, db }: DBConnectionParams) => {
+async function getConnectionParams(id) {
+  const connections = await getItem<DBConnectionParams[]>({ key: "connections", defaultVal: [] });
+  return connections.find(connection => connection.id === id);
+}
+function openConnection({ host, login, password, db }: DBConnectionParams) {
   const driver = neo4jConnector.driver(host, neo4jConnector.auth.basic(login, password))
-  const session = driver.session({
+  return driver.session({
     database: db
   });
+}
+function closeConnection(session?: Session) {
+  return session?.close();
+}
+
+let sessions: Record<string, Session> = {};
+addActionListener("openConnection", async ({ id }: { id: string }) => {
+  closeConnection(sessions[id]);
+  const dbParams = await getConnectionParams(id);
+  if (dbParams)
+    sessions[id] = openConnection(dbParams);
+});
+addActionListener("closeConnection", async ({ id }: { id: string }) => {
+  closeConnection(sessions[id]);
+  delete sessions[id];
+});
+addActionListener("executeQuery", async ({ id, query, params }) => {
+  if (!sessions[id])
+    sessions[id] = openConnection(await getConnectionParams(id));
+  return sessions[id].run(query, params);
+});
+
+addActionListener("testConnection", async (dbParams: DBConnectionParams) => {
+  const session = openConnection(dbParams);
   await session.run(
     'RETURN 1'
   );
+  await session.close();
 })
 
-addActionListener("getItem", ({ key, defaultVal }) => new Promise((resolve, reject) => {
-  storage.has(key, (error, hasKey) => {
-    if (error)
-      reject(error);
-    resolve(hasKey);
-  });
-}).then((hasKey) => new Promise((resolve, reject) => {
-  if (!hasKey)
-    resolve(defaultVal);
-  storage.get(key, (error, data) => {
-    if (error)
-      reject(error);
-    resolve(data);
-  });
-})))
+addActionListener("getItem", getItem)
 
-addActionListener("setItem", ({ key, value }) => new Promise((resolve) => {
-  storage.set(key, value, () => resolve(undefined));
-}))
+addActionListener("setItem", setItem)
 
-addActionListener("deleteItem", ({ key, value }) => new Promise((resolve) => {
-  storage.remove(key, () => resolve(undefined));
-}))
+addActionListener("deleteItem", deleteItem)
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

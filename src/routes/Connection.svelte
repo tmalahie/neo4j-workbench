@@ -10,6 +10,7 @@
   import GoBack, { historyBackWFallback } from "src/components/GoBack.svelte";
   import { bootbox } from "bootbox-svelte";
   import connections from "src/stores/connections";
+  import { closeConnection } from "src/helpers/db";
 
   let connection: DBConnectionParams;
   $: {
@@ -37,8 +38,10 @@
     };
     saving = true;
     try {
-      if (params.id) await editConnection(params.id, connectionParams);
-      else await createConnection(connectionParams);
+      if (params.id) {
+        await editConnection(params.id, connectionParams);
+        closeConnection(params.id);
+      } else await createConnection(connectionParams);
     } catch (e) {
       bootbox.alert(e.message);
     }

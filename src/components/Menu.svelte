@@ -2,6 +2,7 @@
   import { Accordion, AccordionItem, Icon } from "sveltestrap";
   import { link } from "svelte-spa-router";
   import connections from "src/stores/connections";
+  import MenuConnectionItem from "./MenuConnectionItem.svelte";
 </script>
 
 <div class="drawer">
@@ -9,13 +10,12 @@
     <a class="accordion-item accordion-single" href="/" use:link
       ><Icon name="house-door" /> Home</a
     >
-    <AccordionItem header="Connections">
-      {#each $connections as connection}
-        <a href={`/connections/${connection.id}`} use:link
-          ><Icon name="box" /> {connection.name}</a
-        >
-      {/each}
-    </AccordionItem>
+    <a class="accordion-item accordion-single" href="/connections" use:link
+      ><Icon name="box" /> Connections</a
+    >
+    {#each $connections as connection (connection.id)}
+      <MenuConnectionItem {connection} />
+    {/each}
   </Accordion>
 </div>
 

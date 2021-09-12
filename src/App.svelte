@@ -6,12 +6,14 @@
   import Connections from "./routes/Connections.svelte";
   import { Bootbox } from "bootbox-svelte";
   import Menu from "./components/Menu.svelte";
+  import ConnectionLabel from "./routes/ConnectionLabel.svelte";
 
   const routes = {
     "/": Home,
     "/connections": Connections,
     "/connections/new": Connection,
     "/connections/:id": Connection,
+    "/connections/:id/:label": ConnectionLabel,
     "*": NotFound,
   };
 </script>

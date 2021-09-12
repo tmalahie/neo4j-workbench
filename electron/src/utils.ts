@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron');
 
-export function addActionListener(action: string, listener: (data: any) => Promise<any>) {
+export function addActionListener<T extends (data: any) => Promise<any>>(action: string, listener: T): T {
   ipcMain.on(action, (event, data) => {
     async function executeListener() {
       try {
@@ -15,4 +15,5 @@ export function addActionListener(action: string, listener: (data: any) => Promi
     }
     executeListener();
   })
+  return listener;
 }
