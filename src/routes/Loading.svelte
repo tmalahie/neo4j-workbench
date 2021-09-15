@@ -3,7 +3,7 @@
 </script>
 
 <div class="Loading">
-  <Spinner />
+  <Spinner size="xl" />
 </div>
 
 <style lang="scss">

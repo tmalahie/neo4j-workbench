@@ -65,7 +65,6 @@ function selectTab(id) {
   if (id === currentTab) return;
   mainWindow.removeBrowserView(browserTabs[currentTab].view);
   currentTab = id;
-  const browserTab = browserTabs[id];
   mainWindow.addBrowserView(browserTabs[id].view);
   sendTabsData();
 }
@@ -111,30 +110,41 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
-  globalShortcut.register('Control+Shift+I', () => {
-    const browserTab = browserTabs[currentTab];
-    if (browserTab)
-      browserTab.view.webContents.openDevTools();
-    return false;
+  app.on("browser-window-focus", () => {
+    globalShortcut.register('Control+Shift+I', () => {
+      const browserTab = browserTabs[currentTab];
+      if (browserTab)
+        browserTab.view.webContents.toggleDevTools();
+    });
+    globalShortcut.register('Control+W', () => {
+      if (currentTab !== -1)
+        closeTab(currentTab);
+    });
+    globalShortcut.register('Control+Shift+W', () => {
+      mainWindow.close();
+    });
+    globalShortcut.register('Control+T', () => {
+      openTab("http://localhost:3000");
+    });
+    globalShortcut.register('Control+Tab', () => {
+      if (currentTab !== -1)
+        selectTab((currentTab + 1) % browserTabs.length);
+    });
+    globalShortcut.register('Control+Shift+Tab', () => {
+      if (currentTab !== -1)
+        selectTab((currentTab + browserTabs.length - 1) % browserTabs.length);
+    });
+    globalShortcut.register('Control+R', () => {
+      if (currentTab !== -1)
+        browserTabs[currentTab].view.webContents.reload();
+    });
+    globalShortcut.register('Control+Shift+R', () => {
+      if (currentTab !== -1)
+        browserTabs[currentTab].view.webContents.reloadIgnoringCache();
+    });
   });
-  globalShortcut.register('Control+W', () => {
-    if (currentTab !== -1)
-      closeTab(currentTab);
-    return false;
-  });
-  globalShortcut.register('Control+T', () => {
-    openTab("http://localhost:3000");
-    return false;
-  });
-  globalShortcut.register('Control+Tab', () => {
-    if (currentTab !== -1)
-      selectTab((currentTab + 1) % browserTabs.length);
-    return false;
-  });
-  globalShortcut.register('Control+Shift+Tab', () => {
-    if (currentTab !== -1)
-      selectTab((currentTab + browserTabs.length - 1) % browserTabs.length);
-    return false;
+  app.on("browser-window-blur", () => {
+    globalShortcut.unregisterAll();
   });
 })
 
