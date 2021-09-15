@@ -4,11 +4,15 @@ export type DBNumber = {
   high: number;
   low: number;
 }
-
-export type QueryResult = {
+export type NodeResult<T> = {
+  identity: DBNumber,
+  labels: string[],
+  properties: T
+};
+export type QueryResult<T> = {
   records: {
     keys: string[],
-    _fields: any[]
+    _fields: T[]
   }[],
   summary: {
     query: {
@@ -42,8 +46,8 @@ export function openConnection(id: string) {
 export function closeConnection(id: string) {
   sendData("closeConnection", { id });
 }
-export function executeQuery(id: string, query: string, parameters?: any) {
-  return sendData<QueryResult>("executeQuery", {
+export function executeQuery<T>(id: string, query: string, parameters?: any) {
+  return sendData<QueryResult<T>>("executeQuery", {
     id: id,
     query,
     parameters

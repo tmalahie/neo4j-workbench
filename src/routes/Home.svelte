@@ -46,6 +46,7 @@
   .card-container {
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
 
     & :global(.card) {
       margin: 1em;

@@ -2,9 +2,9 @@
   import { AccordionItem, Icon, Spinner } from "sveltestrap";
   import { link } from "svelte-spa-router";
   import type { DBConnectionParams } from "@common-types/db";
-  import { bootbox } from "bootbox-svelte";
   import { executeQuery } from "src/helpers/db";
   import { onMount } from "svelte";
+  import { showError } from "src/helpers/errors";
   export let connection: DBConnectionParams;
 
   let nodeLabels: string[],
@@ -21,14 +21,16 @@
   }
   async function loadLabels() {
     try {
-      const labelsResult = await executeQuery(
+      const { records } = await executeQuery<string[]>(
         connection.id,
         "MATCH (n) RETURN distinct labels(n)"
       );
 
-      nodeLabels = labelsResult.records.map((r) => r._fields[0][0]);
+      nodeLabels = [
+        ...new Set<string>(records.flatMap((r) => r._fields[0])),
+      ].sort();
     } catch (e) {
-      bootbox.alert(e?.message);
+      showError(e);
     }
   }
 
