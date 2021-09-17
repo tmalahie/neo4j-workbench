@@ -5,6 +5,7 @@
   import type { NodeResult } from "src/helpers/db";
   import { showError } from "src/helpers/errors";
   import { Table } from "sveltestrap";
+import { bootbox } from "bootbox-svelte";
 
   function propsToKey(props: string[]) {
     return props.join("::");
@@ -17,8 +18,57 @@
     return props[props.length - 1];
   }
 
+  function isDbNumber(data) {
+    return (typeof data?.low === "number") && (typeof data?.high === "number") && Object.keys(data).length === 2;
+  }
+  const BIGINT_SEPARATOR = BigInt(Math.pow(2,32));
+  function nodeDataToString(data) {
+    if (isDbNumber(data))
+      return (BigInt(data.high)*BIGINT_SEPARATOR + BigInt(data.low)).toString();
+    return JSON.stringify(data);
+  }
+  function nodeDataToValue(data) {
+    if (isDbNumber(data))
+      return (BigInt(data.high)*BIGINT_SEPARATOR + BigInt(data.low)).toString();
+    if (data === undefined)
+      return "undefined";
+    if (typeof data === "string")
+      return data;
+    return JSON.stringify(data);
+  }
+  function stringToNodeData(str) {
+    if (str === "")
+      return undefined;
+    if (str.match(/^[+-]?\d+$/g)) {
+      const nb = BigInt(str);
+      return {
+        low: Number(nb % BIGINT_SEPARATOR),
+        high: Number(nb / BIGINT_SEPARATOR)
+      };
+    }
+    return JSON.parse(str);
+  }
+  function nodeDataToCell(data): NodeCell {
+    const dataString = nodeDataToString(data);
+    return {
+      value: data,
+      currentValue: data,
+      lastValue: dataString,
+      nextValue: dataString
+    }
+  }
+
+  type NodeCell = {
+    currentValue: any; // Current value in database
+    value: any; // Value changed
+    lastValue: string; // Last value before starting editing
+    nextValue: string; // Current value editing
+    editing?: boolean; // Is currently editing cell
+    edited?: boolean; // Has cell been edited
+    input?: HTMLInputElement
+  }
   type NodeRow = {
-    cells: Record<string, any>;
+    cells: Record<string, NodeCell>;
     _fields: NodeResult<any>[];
   };
   type NodeCol = {
@@ -41,16 +91,15 @@
         cypherQuery
       );
       rows = records.map((r) => {
-        const cells: Record<string, any> = {};
+        const cells: Record<string, NodeCell> = {};
         const { _fields } = r;
         for (let i = 0; i < _fields.length; i++) {
           const field = _fields[i];
           const sI = `${i}`;
-          cells[propsToKey([sI, "identity"])] = field.identity;
+          cells[propsToKey([sI, "identity"])] = nodeDataToCell(field.identity);
           let properties = field.properties;
-          for (const key in properties) {
-            cells[propsToKey([sI, "properties", key])] = properties[key];
-          }
+          for (const key in properties)
+            cells[propsToKey([sI, "properties", key])] = nodeDataToCell(properties[key]);
         }
         return {
           _fields,
@@ -66,8 +115,56 @@
     } catch (e) {
       showError(e);
     }
-    console.log({ rows });
-    console.log({ columns });
+  }
+  function handleCellKeyPress(event,rowId,key) {
+    if (event.code === "Enter")
+      handleCellChange(rowId,key);
+    else if (event.code === "Escape")
+      handleCellExit(rowId,key);
+  }
+  function handleCellExit(rowId,key) {
+    rows[rowId].cells[key].nextValue = rows[rowId].cells[key].lastValue;
+    rows[rowId].cells[key].editing = false;
+    rows = rows;
+  }
+  async function handleCellChange(rowId,key) {
+    if (rows[rowId].cells[key].nextValue !== rows[rowId].cells[key].lastValue) {
+      try {
+        const nextValueParsed = stringToNodeData(rows[rowId].cells[key].nextValue);
+        rows[rowId].cells[key].value = nextValueParsed;
+      }
+      catch (e) {
+        await bootbox.alert(e.message);
+        rows[rowId].cells[key].editing = true;
+        postSelectRow(rowId,key);
+        rows = rows;
+        return;
+      }
+      rows[rowId].cells[key].edited = true;
+      rows[rowId].cells[key].lastValue = rows[rowId].cells[key].nextValue;
+    }
+    rows[rowId].cells[key].editing = false;
+    rows = rows;
+  }
+  function handleCellStartEdit(rowId,key) {
+    rows[rowId].cells[key].editing = true;
+    rows = rows;
+    postSelectRow(rowId,key);
+  }
+  function postSelectRow(rowId,key) {
+    setTimeout(() => {
+      const row = rows[rowId].cells[key];
+      const input = row.input;
+      if (input) {
+        const value = input.value;
+        if (value.match(/^".*"$/g)) {
+          input.focus();
+          input.setSelectionRange(1,value.length-1);
+        }
+        else
+          input.select();
+      }
+    });
   }
   $: loadRows(params);
   let columnGroups: NodeColGroup[];
@@ -114,13 +211,19 @@
         </tr>
       </thead>
       <tbody>
-        {#each rows as row (row.cells[identityKey])}
+        {#each rows as row,i (row.cells[identityKey])}
           <tr>
             {#each columns as column (column.key)}
-              <td>
-                <div>
-                  {JSON.stringify(row.cells[column.key])}
-                </div>
+              <td class:cell-edited={row.cells[column.key].edited}>
+                {#if row.cells[column.key].editing}
+                  <div class="cell-edit">
+                    <input type="text" bind:this={row.cells[column.key].input} bind:value={row.cells[column.key].nextValue} on:keydown={(event) => handleCellKeyPress(event,i,column.key)} on:blur={() => handleCellChange(i,column.key)} />
+                  </div>
+                {:else}
+                  <div class="cell-view" on:dblclick={() => handleCellStartEdit(i,column.key)}>
+                    {nodeDataToValue(row.cells[column.key].value)}
+                  </div>
+                {/if}
               </td>
             {/each}
           </tr>
@@ -148,11 +251,24 @@
     }
     & > tbody > tr {
       & > td {
-        padding: 0.5em;
+        padding: 0;
         border: 1px solid $cell-inner-color;
         cursor: default;
-        > div {
+        &.cell-edited {
+          border-color: $blue-300;
+          background-color: $blue-100;
+        }
+        > .cell-view {
+
           width: 10em;
+          padding: 0.5em;
+          font-family: monospace;
+          white-space: nowrap;
+          overflow: hidden;
+        }
+        > .cell-edit > input {
+          width: 10em;
+          padding: 0.5em;
           font-family: monospace;
           white-space: nowrap;
           overflow: hidden;
