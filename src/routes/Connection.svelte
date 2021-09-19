@@ -95,8 +95,7 @@
         type="password"
         id="password"
         bind:value={connection.password}
-        placeholder="admin"
-        required
+        placeholder="•••••"
       />
       <label for="db" class="d-block mt-2">Database</label>
       <Input
@@ -104,7 +103,6 @@
         id="db"
         bind:value={connection.db}
         placeholder="neo4j"
-        required
       />
     </FormGroup>
     <FormGroup>
