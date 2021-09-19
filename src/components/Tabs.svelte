@@ -33,12 +33,6 @@
     }
   }
 
-  ipcRenderer.on("tabs", (_event: any, response: TabState) => {
-    tabs = response.tabs;
-    currentTab = response.currentTab;
-  });
-  sendData("getTabs", {});
-
   onMount(() => {
     function linkClickListener(e) {
       if (e.target.localName == "a" && e.ctrlKey) {
@@ -50,11 +44,26 @@
         }
       }
     }
-
     document.addEventListener("click", linkClickListener, true);
+
+    ipcRenderer.on("tabs", (_event: any, response: TabState) => {
+      tabs = response.tabs;
+      currentTab = response.currentTab;
+    });
+    sendData("setTabTitle", { title: document.title });
+
+    const titleObserver = new MutationObserver(function (mutations) {
+      sendData("setTabTitle", { title: document.title });
+    });
+    titleObserver.observe(document.querySelector("title"), {
+      subtree: true,
+      characterData: true,
+      childList: true,
+    });
 
     return () => {
       document.removeEventListener("click", linkClickListener, true);
+      titleObserver.disconnect();
     };
   });
 </script>
@@ -106,9 +115,10 @@
         white-space: nowrap;
         text-overflow: ellipsis;
         user-select: none;
+        font-size: 0.85em;
+        padding-right: 0.2em;
       }
       :global(i) {
-        margin-top: 0.125em;
         font-size: 0.75em;
         &:hover {
           color: $danger;

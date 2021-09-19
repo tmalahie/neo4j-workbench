@@ -7,7 +7,8 @@ import { addActionListener } from "./utils";
 import { deleteItem, getItem, setItem } from "./storage";
 
 let mainWindow: BrowserWindow, browserTabs: {
-  view: BrowserView
+  view: BrowserView,
+  title: string
 }[] = [], currentTab = -1;
 function handleResize() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -52,41 +53,40 @@ function openTab(url) {
   });
   browserView.webContents.loadURL(url);
   browserTabs.push({
-    view: browserView
+    view: browserView,
+    title: url
   });
-  if (currentTab !== -1)
-    mainWindow.removeBrowserView(browserTabs[currentTab].view);
   currentTab = browserTabs.length - 1;
-  mainWindow.addBrowserView(browserView);
+  mainWindow.setBrowserView(browserView);
   handleResize();
   sendTabsData();
 }
 function selectTab(id) {
   if (id === currentTab) return;
-  mainWindow.removeBrowserView(browserTabs[currentTab].view);
   currentTab = id;
-  mainWindow.addBrowserView(browserTabs[id].view);
+  mainWindow.setBrowserView(browserTabs[id].view);
   sendTabsData();
 }
 function closeTab(id) {
-  const browserTab = browserTabs[id];
   browserTabs.splice(id, 1);
-  if (id === currentTab)
-    mainWindow.removeBrowserView(browserTab.view);
   if (currentTab >= browserTabs.length)
     currentTab--;
   if (currentTab >= 0)
-    mainWindow.addBrowserView(browserTabs[currentTab].view);
+    mainWindow.setBrowserView(browserTabs[currentTab].view);
   sendTabsData();
   if (!browserTabs.length)
     mainWindow.close();
+}
+function setTabTitle(id, title) {
+  browserTabs[id].title = title;
+  sendTabsData();
 }
 
 function getTabsData() {
   return {
     currentTab,
     tabs: browserTabs.map(tab => ({
-      title: "Electron" // TODO
+      title: tab.title
     }))
   };
 }
@@ -111,34 +111,34 @@ app.whenReady().then(() => {
   })
 
   app.on("browser-window-focus", () => {
-    globalShortcut.register('Control+Shift+I', () => {
+    globalShortcut.register('CommandOrControl+Shift+I', () => {
       const browserTab = browserTabs[currentTab];
       if (browserTab)
         browserTab.view.webContents.toggleDevTools();
     });
-    globalShortcut.register('Control+W', () => {
+    globalShortcut.register('CommandOrControl+W', () => {
       if (currentTab !== -1)
         closeTab(currentTab);
     });
-    globalShortcut.register('Control+Shift+W', () => {
+    globalShortcut.register('CommandOrControl+Shift+W', () => {
       mainWindow.close();
     });
-    globalShortcut.register('Control+T', () => {
+    globalShortcut.register('CommandOrControl+T', () => {
       openTab("http://localhost:3000");
     });
-    globalShortcut.register('Control+Tab', () => {
+    globalShortcut.register('CommandOrControl+Tab', () => {
       if (currentTab !== -1)
         selectTab((currentTab + 1) % browserTabs.length);
     });
-    globalShortcut.register('Control+Shift+Tab', () => {
+    globalShortcut.register('CommandOrControl+Shift+Tab', () => {
       if (currentTab !== -1)
         selectTab((currentTab + browserTabs.length - 1) % browserTabs.length);
     });
-    globalShortcut.register('Control+R', () => {
+    globalShortcut.register('CommandOrControl+R', () => {
       if (currentTab !== -1)
         browserTabs[currentTab].view.webContents.reload();
     });
-    globalShortcut.register('Control+Shift+R', () => {
+    globalShortcut.register('CommandOrControl+Shift+R', () => {
       if (currentTab !== -1)
         browserTabs[currentTab].view.webContents.reloadIgnoringCache();
     });
@@ -204,6 +204,11 @@ addActionListener("selectTab", async ({ id }) => {
 });
 addActionListener("closeTab", async ({ id }) => {
   closeTab(id);
+});
+addActionListener("setTabTitle", async ({ title }, { sender }) => {
+  const id = browserTabs.indexOf(browserTabs.find(tab => tab.view.webContents === sender))
+  if (id !== -1)
+    setTabTitle(id, title);
 });
 
 addActionListener("getItem", getItem)

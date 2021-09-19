@@ -1,11 +1,11 @@
 const { ipcMain } = require('electron');
 
-export function addActionListener<T extends (data: any) => Promise<any>>(action: string, listener: T): T {
+export function addActionListener<T extends (data: any, event: Electron.IpcMainEvent) => Promise<any>>(action: string, listener: T): T {
   ipcMain.on(action, (event, data) => {
     async function executeListener() {
       const actionKey = `${action}.${data.key}`;
       try {
-        const res = await listener(data.payload);
+        const res = await listener(data.payload, event);
         event.sender.send(`${actionKey}.success`, res);
         console.log(`Send response for action ${action}`, res);
       }

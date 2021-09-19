@@ -13,6 +13,8 @@
       );
     }
   }
+
+  document.title = "Manage connections";
 </script>
 
 <main class="Connections">

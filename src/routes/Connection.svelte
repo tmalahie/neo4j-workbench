@@ -66,6 +66,8 @@
     }
     testing = false;
   }
+
+  document.title = "Manage connection";
 </script>
 
 <div class="Connection">

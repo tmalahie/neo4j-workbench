@@ -92,6 +92,8 @@
     columnGroups = groups;
   }
   const identityKey = propsToKey(["0", "identity"]);
+
+  document.title = params.label;
 </script>
 
 <main class="Connection">

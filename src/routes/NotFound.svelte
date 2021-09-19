@@ -1,5 +1,7 @@
 <script lang="ts">
   import GoBack from "src/components/GoBack.svelte";
+
+  document.title = "404 Not Found";
 </script>
 
 <main>
