@@ -4,8 +4,10 @@
   import { executeQuery } from "src/helpers/db";
   import type { NodeResult } from "src/helpers/db";
   import { showError } from "src/helpers/errors";
-  import { Table } from "sveltestrap";
-import { bootbox } from "bootbox-svelte";
+  import { Button, Icon, Input, Table } from "sveltestrap";
+  import { bootbox } from "bootbox-svelte";
+  import Loading from "./Loading.svelte";
+  import { onMount } from "svelte";
 
   function propsToKey(props: string[]) {
     return props.join("::");
@@ -35,6 +37,9 @@ import { bootbox } from "bootbox-svelte";
     if (typeof data === "string")
       return data;
     return JSON.stringify(data);
+  }
+  function nodeDataToCypherValue(data) {
+    return nodeDataToString(data);
   }
   function stringToNodeData(str) {
     if (str === "")
@@ -68,6 +73,7 @@ import { bootbox } from "bootbox-svelte";
     input?: HTMLInputElement
   }
   type NodeRow = {
+    label: string;
     cells: Record<string, NodeCell>;
     _fields: NodeResult<any>[];
   };
@@ -78,19 +84,63 @@ import { bootbox } from "bootbox-svelte";
     key: string;
     cols: NodeCol[];
   };
+  function propsToCypherNode(props: string[]) {
+      switch (props[1]) {
+        case "identity":
+          return "ID(n)";
+        case "properties":
+          if (props[2].match(/^\w+$/))
+            return `n.${props[2]}`;
+          return `n["${props[2]}"]`;
+      }
+      return "NULL";
+  }
+  function keyToCypherNode(key: string) {
+    return propsToCypherNode(keyToProps(key));
+  }
 
   let rows: NodeRow[] = [];
   let columns: NodeCol[] = [];
   let loadingRows = true;
+  const identityKey = propsToKey(["0", "identity"]);
+  let cypherFilters: Record<string,any> = {};
+  let cypherOrder: {
+    key: string;
+    order: "DESC" | "ASC";
+  };
+  let cypherPaging = {
+    currentPage: 0,
+    isNextPage: true
+  };
+  const nbRowsPerPage = 50;
   async function loadRows(params) {
     loadingRows = true;
-    let cypherQuery = `MATCH (n:${params.label}) RETURN n LIMIT 50`;
+    let cypherQuery = `MATCH (n:${params.label})`;
+    let cypherWhere = [];
+    let cypherVars = [];
+    for (const key in cypherFilters) {
+      let filterVar = keyToCypherNode(key);
+      cypherWhere.push(`${filterVar}=${cypherFilters[key]}`);
+      cypherVars.push(cypherFilters[key]);
+      if (cypherWhere.length)
+        cypherQuery += " WHERE " + cypherWhere.join(" AND ");
+    }
+    let cypherVarsDict = {};
+    for (let i=0;i<cypherVars.length;i++) {
+      const cypherVar = cypherVars[i];
+      cypherVarsDict[`var${i}`] = cypherVar;
+    }
+    cypherQuery += " RETURN n";
+    if (cypherOrder)
+      cypherQuery += ` ORDER BY ${keyToCypherNode(cypherOrder.key)} ${cypherOrder.order}`;
+    cypherQuery += ` SKIP ${cypherPaging.currentPage*nbRowsPerPage} LIMIT ${nbRowsPerPage}`;
     try {
       const { records } = await executeQuery<NodeResult<any>>(
         params.id,
         cypherQuery
       );
-      rows = records.map((r) => {
+      console.log({records});
+      const newRows: NodeRow[] = records.map((r) => {
         const cells: Record<string, NodeCell> = {};
         const { _fields } = r;
         for (let i = 0; i < _fields.length; i++) {
@@ -102,19 +152,80 @@ import { bootbox } from "bootbox-svelte";
             cells[propsToKey([sI, "properties", key])] = nodeDataToCell(properties[key]);
         }
         return {
+          label: params.label, // TODO
           _fields,
           cells,
         };
       });
       let allColumns: Record<string, NodeCol> = {};
-      for (const row of rows) {
+      for (const column of columns)
+        allColumns[column.key] = { key: column.key };
+      for (const row of newRows) {
         for (const key in row.cells) allColumns[key] = { key };
       }
       columns = Object.values(allColumns);
+      rows = [...rows, ...newRows];
+      for (const row of rows) {
+        for (const column of columns) {
+          if (!row.cells[column.key])
+            row.cells[column.key] = nodeDataToCell(undefined);
+        }
+      }
+      cypherPaging.isNextPage = (newRows.length >= nbRowsPerPage);
       loadingRows = false;
     } catch (e) {
       showError(e);
     }
+  }
+  async function reloadRows(params) {
+    rows = [];
+    cypherPaging.currentPage = 0;
+    cypherPaging.isNextPage = true;
+    await loadRows(params)
+  }
+  async function loadMoreRows() {
+    cypherPaging.currentPage = 1;
+    loadRows(params);
+  }
+  async function saveEditingRows() {
+    const promises = [];
+    for (const row of rows) {
+      let cypherPropsToSet = [];
+      let cypherPropsToRemove = [];
+      for (const column of columns) {
+        const cell = row.cells[column.key];
+        if (cell.edited) {
+          if (cell.value !== undefined)
+            cypherPropsToSet.push(`${keyToCypherNode(column.key)}=${nodeDataToCypherValue(cell.value)}`);
+          else
+            cypherPropsToRemove.push(`${keyToCypherNode(column.key)}`);
+        }
+      }
+      let cypherPropsToAlter = [];
+      if (cypherPropsToSet.length)
+        cypherPropsToAlter.push(`SET ${cypherPropsToSet.join(",")}`);
+      if (cypherPropsToRemove.length)
+        cypherPropsToAlter.push(`REMOVE ${cypherPropsToRemove.join(",")}`);
+      if (cypherPropsToAlter.length) {
+        const identityCell = row.cells[identityKey];
+        let queryToRun = `MATCH (n:${row.label}) WHERE ${keyToCypherNode(identityKey)}=${nodeDataToCypherValue(identityCell.currentValue)} ${cypherPropsToAlter.join(" ")}`;
+        promises.push(executeQuery(params.id, queryToRun).then(() => {
+          for (const column of columns)
+            row.cells[column.key] = nodeDataToCell(row.cells[column.key].value);
+          rows = rows;
+        }));
+      }
+    }
+    Promise.all(promises).catch((e) => {
+      bootbox.alert(e.message);
+    })
+  }
+  async function resetEditingRows() {
+    for (const row of rows) {
+      for (const column of columns)
+        row.cells[column.key] = nodeDataToCell(row.cells[column.key].currentValue);
+    }
+    rows = rows;
   }
   function handleCellKeyPress(event,rowId,key) {
     if (event.code === "Enter")
@@ -146,10 +257,39 @@ import { bootbox } from "bootbox-svelte";
     rows[rowId].cells[key].editing = false;
     rows = rows;
   }
+  function handleSort(key) {
+    if (cypherOrder?.key === key)
+      cypherOrder.order = (cypherOrder.order === "DESC" ? "ASC":"DESC");
+    else
+      cypherOrder.order = "ASC";
+    cypherOrder.key = key;
+    reloadRows(params);
+  }
   function handleCellStartEdit(rowId,key) {
-    rows[rowId].cells[key].editing = true;
-    rows = rows;
-    postSelectRow(rowId,key);
+    const props = keyToProps(key);
+    if (props[1] !== "identity") {
+      rows[rowId].cells[key].editing = true;
+      rows = rows;
+      postSelectRow(rowId,key);
+    }
+  }
+  async function handleFilter(e) {
+    const elts = e.target.elements;
+    const filters = {};
+    for (const elt of elts) {
+      if (elt.value) {
+        try {
+          filters[elt.name] = nodeDataToString(stringToNodeData(elt.value));
+        }
+        catch (e) {
+          await bootbox.alert(e.message);
+          elt.select();
+          return;
+        }
+      }
+    }
+    cypherFilters = filters;
+    reloadRows(params);
   }
   function postSelectRow(rowId,key) {
     setTimeout(() => {
@@ -166,7 +306,6 @@ import { bootbox } from "bootbox-svelte";
       }
     });
   }
-  $: loadRows(params);
   let columnGroups: NodeColGroup[];
   $: {
     let groups: NodeColGroup[] = [];
@@ -188,15 +327,42 @@ import { bootbox } from "bootbox-svelte";
     }
     columnGroups = groups;
   }
-  const identityKey = propsToKey(["0", "identity"]);
 
   document.title = params.label;
+
+  function handleRouteChange(params) {
+    cypherFilters = {};
+    cypherOrder = {
+      key: identityKey,
+      order: "DESC"
+    };
+    columns = [];
+    reloadRows(params);
+  }
+  $: handleRouteChange(params);
+
+  function handleKeyPress(e: KeyboardEvent) {
+    if (e.code === "KeyS") {
+      if (e.ctrlKey || e.metaKey)
+        saveEditingRows();
+    }
+  }
+
+  onMount(() => {
+    document.addEventListener("keydown", handleKeyPress);
+    return () => {
+      document.removeEventListener("keydown", handleKeyPress);
+    }
+  });
 </script>
 
 <main class="Connection">
   <h1>{params.label}</h1>
   <GoBack class="mb-2" />
   {#if columns.length}
+    <form id="query-result-filter" on:submit|preventDefault={handleFilter}>
+      <Button type="submit" class="d-none" />
+    </form>
     <Table class="query-result-table">
       <thead>
         <tr>
@@ -204,9 +370,23 @@ import { bootbox } from "bootbox-svelte";
             <th colspan={columnGroup.cols.length}>{columnGroup.key}</th>
           {/each}
         </tr>
+        <tr class="query-result-columns">
+          {#each columns as column (column.key)}
+            <th>
+              {lastKey(column.key)}
+              <div class="query-result-sort" class:query-result-sort-active={column.key === cypherOrder?.key} on:click={() => handleSort(column.key)}>
+                {#if column.key !== cypherOrder?.key}
+                  <Icon name="sort-down-alt" />
+                {:else}
+                  <Icon name={cypherOrder.order==="DESC" ? "sort-alpha-up-alt" : "sort-alpha-down"} />
+                {/if}
+              </div>
+            </th>
+          {/each}
+        </tr>
         <tr>
           {#each columns as column (column.key)}
-            <th>{lastKey(column.key)}</th>
+            <th><Input name={column.key} form="query-result-filter" placeholder="Filter..." /></th>
           {/each}
         </tr>
       </thead>
@@ -231,6 +411,26 @@ import { bootbox } from "bootbox-svelte";
       </tbody>
     </Table>
   {/if}
+  {#if loadingRows}
+    <Loading />
+  {:else if columns.length}
+    <div class="query-result-global-actions">
+      {#if cypherPaging.isNextPage}
+        <Button
+          type="button"
+          color="link"
+          on:click={loadMoreRows}>Load more rows</Button>
+      {/if}
+      <Button
+        type="button"
+        color="success"
+        on:click={saveEditingRows}>Save</Button>
+      <Button
+        type="button"
+        color="warning"
+        on:click={resetEditingRows}>Undo</Button>
+    </div>
+  {/if}
 </main>
 
 <style lang="scss">
@@ -242,12 +442,30 @@ import { bootbox } from "bootbox-svelte";
 
   :global(.table.query-result-table) {
     width: auto;
-    font-size: 0.75em;
-    margin-right: 0.25em;
+    font-size: 0.75rem;
+    margin-right: 0.25rem;
     & > thead > tr > th {
       text-align: center;
-      padding: 0.375em;
+      padding: 0.25rem;
       border: 1px solid $cell-outer-color;
+      & :global(input.form-control) {
+        padding: 0.125rem 0.25rem;
+        font-size: 0.625rem;
+        width: 7rem;
+      }
+    }
+    & > thead > tr.query-result-columns > th {
+      position: relative;
+      padding: 0.25rem 0.375rem;
+      > .query-result-sort {
+        position: absolute;
+        display: inline-block;
+        right: 0.25rem;
+        cursor: pointer;
+        &.query-result-sort-active {
+          color: $primary;
+        }
+      }
     }
     & > tbody > tr {
       & > td {

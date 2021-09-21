@@ -158,38 +158,47 @@ function openConnection({ host, login, password, db }: DBConnectionParams) {
     database: db
   });
 }
-async function closeConnection(session?: Session) {
-  try {
-    await session?.close();
-  }
-  catch (e) {
-    console.error(e);
-  }
-}
 
-let sessions: Record<string, Session> = {};
+type DBSession = {
+  params: DBConnectionParams;
+  run: (query: string, params?: any) => Promise<any>
+}
+let sessions: Record<string, DBSession> = {};
+function createSession(connectionParams) {
+  let res: DBSession = {
+    params: connectionParams,
+    run: async (query: string, params?: any) => {
+      let session: Session;
+      try {
+        session = openConnection(res.params);
+        return await session.run(query, params);
+      }
+      finally {
+        session?.close();
+      }
+    }
+  };
+  return res;
+}
 addActionListener("openConnection", async ({ id }: { id: string }) => {
-  closeConnection(sessions[id]);
   const dbParams = await getConnectionParams(id);
   if (dbParams)
-    sessions[id] = openConnection(dbParams);
+    sessions[id] = createSession(dbParams);
 });
 addActionListener("closeConnection", async ({ id }: { id: string }) => {
-  closeConnection(sessions[id]);
   delete sessions[id];
 });
 addActionListener("executeQuery", async ({ id, query, params }) => {
   if (!sessions[id])
-    sessions[id] = openConnection(await getConnectionParams(id));
+    sessions[id] = createSession(await getConnectionParams(id));
   return sessions[id].run(query, params);
 });
 
 addActionListener("testConnection", async (dbParams: DBConnectionParams) => {
-  const session = openConnection(dbParams);
+  const session = createSession(dbParams);
   await session.run(
     'RETURN 1'
   );
-  await session.close();
 })
 
 addActionListener("getTabs", async () => {

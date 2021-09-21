@@ -46,10 +46,11 @@ export function openConnection(id: string) {
 export function closeConnection(id: string) {
   sendData("closeConnection", { id });
 }
-export function executeQuery<T>(id: string, query: string, parameters?: any) {
+export function executeQuery<T>(id: string, query: string, params?: any) {
+  console.log("Executing query", query, "with parameters", params);
   return sendData<QueryResult<T>>("executeQuery", {
     id: id,
     query,
-    parameters
+    params
   });
 }
