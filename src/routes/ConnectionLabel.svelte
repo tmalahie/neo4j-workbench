@@ -21,36 +21,41 @@
   }
 
   function isDbNumber(data) {
-    return (typeof data?.low === "number") && (typeof data?.high === "number") && Object.keys(data).length === 2;
+    return (
+      typeof data?.low === "number" &&
+      typeof data?.high === "number" &&
+      Object.keys(data).length === 2
+    );
   }
-  const BIGINT_SEPARATOR = BigInt(Math.pow(2,32));
+  const BIGINT_SEPARATOR = BigInt(Math.pow(2, 32));
+  function dbNumberToString(data) {
+    return (BigInt(data.high) * BIGINT_SEPARATOR + BigInt(data.low)).toString();
+  }
+  function stringToDbNumber(str) {
+    const nb = BigInt(str);
+    return {
+      low: Number(nb % BIGINT_SEPARATOR),
+      high: Number(nb / BIGINT_SEPARATOR),
+    };
+  }
   function nodeDataToString(data) {
-    if (isDbNumber(data))
-      return (BigInt(data.high)*BIGINT_SEPARATOR + BigInt(data.low)).toString();
+    if (isDbNumber(data)) return dbNumberToString(data);
     return JSON.stringify(data);
   }
   function nodeDataToValue(data) {
-    if (isDbNumber(data))
-      return (BigInt(data.high)*BIGINT_SEPARATOR + BigInt(data.low)).toString();
-    if (data === undefined)
-      return "undefined";
-    if (typeof data === "string")
-      return data;
+    if (isDbNumber(data)) return dbNumberToString(data);
+    if (data == null) return "NULL";
+    if (typeof data === "string") return data;
     return JSON.stringify(data);
   }
   function nodeDataToCypherValue(data) {
-    return nodeDataToString(data);
+    if (isDbNumber(data)) return dbNumberToString(data);
+    if (data == null) return "NULL";
+    return JSON.stringify(data).replace(/"(\w+)":/g, "$1:");
   }
   function stringToNodeData(str) {
-    if (str === "")
-      return undefined;
-    if (str.match(/^[+-]?\d+$/g)) {
-      const nb = BigInt(str);
-      return {
-        low: Number(nb % BIGINT_SEPARATOR),
-        high: Number(nb / BIGINT_SEPARATOR)
-      };
-    }
+    if (str === "") return null;
+    if (str.match(/^[+-]?\d+$/g)) return stringToDbNumber(str);
     return JSON.parse(str);
   }
   function nodeDataToCell(data): NodeCell {
@@ -59,8 +64,8 @@
       value: data,
       currentValue: data,
       lastValue: dataString,
-      nextValue: dataString
-    }
+      nextValue: dataString,
+    };
   }
 
   type NodeCell = {
@@ -70,8 +75,8 @@
     nextValue: string; // Current value editing
     editing?: boolean; // Is currently editing cell
     edited?: boolean; // Has cell been edited
-    input?: HTMLInputElement
-  }
+    input?: HTMLInputElement;
+  };
   type NodeRow = {
     label: string;
     cells: Record<string, NodeCell>;
@@ -85,15 +90,14 @@
     cols: NodeCol[];
   };
   function propsToCypherNode(props: string[]) {
-      switch (props[1]) {
-        case "identity":
-          return "ID(n)";
-        case "properties":
-          if (props[2].match(/^\w+$/))
-            return `n.${props[2]}`;
-          return `n["${props[2]}"]`;
-      }
-      return "NULL";
+    switch (props[1]) {
+      case "identity":
+        return "ID(n)";
+      case "properties":
+        if (props[2].match(/^\w+$/)) return `n.${props[2]}`;
+        return `n["${props[2]}"]`;
+    }
+    return "NULL";
   }
   function keyToCypherNode(key: string) {
     return propsToCypherNode(keyToProps(key));
@@ -103,43 +107,25 @@
   let columns: NodeCol[] = [];
   let loadingRows = true;
   const identityKey = propsToKey(["0", "identity"]);
-  let cypherFilters: Record<string,any> = {};
+  let cypherFilters: Record<string, any> = {};
   let cypherOrder: {
     key: string;
     order: "DESC" | "ASC";
   };
   let cypherPaging = {
     currentPage: 0,
-    isNextPage: true
+    isNextPage: true,
   };
+  let cypherQuery: string;
   const nbRowsPerPage = 50;
   async function loadRows(params) {
     loadingRows = true;
-    let cypherQuery = `MATCH (n:${params.label})`;
-    let cypherWhere = [];
-    let cypherVars = [];
-    for (const key in cypherFilters) {
-      let filterVar = keyToCypherNode(key);
-      cypherWhere.push(`${filterVar}=${cypherFilters[key]}`);
-      cypherVars.push(cypherFilters[key]);
-      if (cypherWhere.length)
-        cypherQuery += " WHERE " + cypherWhere.join(" AND ");
-    }
-    let cypherVarsDict = {};
-    for (let i=0;i<cypherVars.length;i++) {
-      const cypherVar = cypherVars[i];
-      cypherVarsDict[`var${i}`] = cypherVar;
-    }
-    cypherQuery += " RETURN n";
-    if (cypherOrder)
-      cypherQuery += ` ORDER BY ${keyToCypherNode(cypherOrder.key)} ${cypherOrder.order}`;
-    cypherQuery += ` SKIP ${cypherPaging.currentPage*nbRowsPerPage} LIMIT ${nbRowsPerPage}`;
+    cypherQuery = buildCypherQuery();
     try {
       const { records } = await executeQuery<NodeResult<any>>(
         params.id,
         cypherQuery
       );
-      console.log({records});
       const newRows: NodeRow[] = records.map((r) => {
         const cells: Record<string, NodeCell> = {};
         const { _fields } = r;
@@ -149,7 +135,9 @@
           cells[propsToKey([sI, "identity"])] = nodeDataToCell(field.identity);
           let properties = field.properties;
           for (const key in properties)
-            cells[propsToKey([sI, "properties", key])] = nodeDataToCell(properties[key]);
+            cells[propsToKey([sI, "properties", key])] = nodeDataToCell(
+              properties[key]
+            );
         }
         return {
           label: params.label, // TODO
@@ -168,10 +156,10 @@
       for (const row of rows) {
         for (const column of columns) {
           if (!row.cells[column.key])
-            row.cells[column.key] = nodeDataToCell(undefined);
+            row.cells[column.key] = nodeDataToCell(null);
         }
       }
-      cypherPaging.isNextPage = (newRows.length >= nbRowsPerPage);
+      cypherPaging.isNextPage = newRows.length >= nbRowsPerPage;
       loadingRows = false;
     } catch (e) {
       showError(e);
@@ -181,7 +169,7 @@
     rows = [];
     cypherPaging.currentPage = 0;
     cypherPaging.isNextPage = true;
-    await loadRows(params)
+    await loadRows(params);
   }
   async function loadMoreRows() {
     cypherPaging.currentPage = 1;
@@ -191,63 +179,101 @@
     const promises = [];
     for (const row of rows) {
       let cypherPropsToSet = [];
-      let cypherPropsToRemove = [];
+      //let cypherPropsToRemove = [];
       for (const column of columns) {
         const cell = row.cells[column.key];
         if (cell.edited) {
-          if (cell.value !== undefined)
-            cypherPropsToSet.push(`${keyToCypherNode(column.key)}=${nodeDataToCypherValue(cell.value)}`);
-          else
-            cypherPropsToRemove.push(`${keyToCypherNode(column.key)}`);
+          //if (cell.value !== undefined)
+          cypherPropsToSet.push(
+            `${keyToCypherNode(column.key)}=${nodeDataToCypherValue(
+              cell.value
+            )}`
+          );
+          //else
+          //  cypherPropsToRemove.push(`${keyToCypherNode(column.key)}`);
         }
       }
       let cypherPropsToAlter = [];
       if (cypherPropsToSet.length)
         cypherPropsToAlter.push(`SET ${cypherPropsToSet.join(",")}`);
-      if (cypherPropsToRemove.length)
-        cypherPropsToAlter.push(`REMOVE ${cypherPropsToRemove.join(",")}`);
+      //if (cypherPropsToRemove.length)
+      //  cypherPropsToAlter.push(`REMOVE ${cypherPropsToRemove.join(",")}`);
       if (cypherPropsToAlter.length) {
         const identityCell = row.cells[identityKey];
-        let queryToRun = `MATCH (n:${row.label}) WHERE ${keyToCypherNode(identityKey)}=${nodeDataToCypherValue(identityCell.currentValue)} ${cypherPropsToAlter.join(" ")}`;
-        promises.push(executeQuery(params.id, queryToRun).then(() => {
-          for (const column of columns)
-            row.cells[column.key] = nodeDataToCell(row.cells[column.key].value);
-          rows = rows;
-        }));
+        let queryToRun = `MATCH (n:${row.label}) WHERE ${keyToCypherNode(
+          identityKey
+        )}=${nodeDataToCypherValue(
+          identityCell.currentValue
+        )} ${cypherPropsToAlter.join(" ")}`;
+        promises.push(
+          executeQuery(params.id, queryToRun).then(() => {
+            for (const column of columns)
+              row.cells[column.key] = nodeDataToCell(
+                row.cells[column.key].value
+              );
+            rows = rows;
+          })
+        );
       }
     }
     Promise.all(promises).catch((e) => {
       bootbox.alert(e.message);
-    })
+    });
+  }
+  function buildCypherQuery() {
+    let res = `MATCH (n:${params.label})`;
+    let cypherWhere = [];
+    let cypherVars = [];
+    for (const key in cypherFilters) {
+      let filterVar = keyToCypherNode(key);
+      cypherWhere.push(`${filterVar}=${cypherFilters[key]}`);
+      cypherVars.push(cypherFilters[key]);
+    }
+    if (cypherWhere.length) res += " WHERE " + cypherWhere.join(" AND ");
+    let cypherVarsDict = {};
+    for (let i = 0; i < cypherVars.length; i++) {
+      const cypherVar = cypherVars[i];
+      cypherVarsDict[`var${i}`] = cypherVar;
+    }
+    res += " RETURN n";
+    if (cypherOrder)
+      res += ` ORDER BY ${keyToCypherNode(cypherOrder.key)} ${
+        cypherOrder.order
+      }`;
+    res += ` SKIP ${
+      cypherPaging.currentPage * nbRowsPerPage
+    } LIMIT ${nbRowsPerPage}`;
+    return res;
   }
   async function resetEditingRows() {
     for (const row of rows) {
       for (const column of columns)
-        row.cells[column.key] = nodeDataToCell(row.cells[column.key].currentValue);
+        row.cells[column.key] = nodeDataToCell(
+          row.cells[column.key].currentValue
+        );
     }
     rows = rows;
   }
-  function handleCellKeyPress(event,rowId,key) {
-    if (event.code === "Enter")
-      handleCellChange(rowId,key);
-    else if (event.code === "Escape")
-      handleCellExit(rowId,key);
+  function handleCellKeyPress(event, rowId, key) {
+    if (event.code === "Enter") handleCellChange(rowId, key);
+    else if (event.code === "Escape") handleCellExit(rowId, key);
   }
-  function handleCellExit(rowId,key) {
+  function handleCellExit(rowId, key) {
     rows[rowId].cells[key].nextValue = rows[rowId].cells[key].lastValue;
     rows[rowId].cells[key].editing = false;
     rows = rows;
   }
-  async function handleCellChange(rowId,key) {
+  async function handleCellChange(rowId, key) {
     if (rows[rowId].cells[key].nextValue !== rows[rowId].cells[key].lastValue) {
       try {
-        const nextValueParsed = stringToNodeData(rows[rowId].cells[key].nextValue);
+        const nextValueParsed = stringToNodeData(
+          rows[rowId].cells[key].nextValue
+        );
         rows[rowId].cells[key].value = nextValueParsed;
-      }
-      catch (e) {
+      } catch (e) {
         await bootbox.alert(e.message);
         rows[rowId].cells[key].editing = true;
-        postSelectRow(rowId,key);
+        postSelectRow(rowId, key);
         rows = rows;
         return;
       }
@@ -259,18 +285,17 @@
   }
   function handleSort(key) {
     if (cypherOrder?.key === key)
-      cypherOrder.order = (cypherOrder.order === "DESC" ? "ASC":"DESC");
-    else
-      cypherOrder.order = "ASC";
+      cypherOrder.order = cypherOrder.order === "DESC" ? "ASC" : "DESC";
+    else cypherOrder.order = "ASC";
     cypherOrder.key = key;
     reloadRows(params);
   }
-  function handleCellStartEdit(rowId,key) {
+  function handleCellStartEdit(rowId, key) {
     const props = keyToProps(key);
     if (props[1] !== "identity") {
       rows[rowId].cells[key].editing = true;
       rows = rows;
-      postSelectRow(rowId,key);
+      postSelectRow(rowId, key);
     }
   }
   async function handleFilter(e) {
@@ -280,18 +305,16 @@
       if (elt.value) {
         try {
           filters[elt.name] = nodeDataToString(stringToNodeData(elt.value));
-        }
-        catch (e) {
-          await bootbox.alert(e.message);
-          elt.select();
-          return;
+        } catch (e) {
+          filters[elt.name] = nodeDataToString(elt.value);
+          elt.value = filters[elt.name];
         }
       }
     }
     cypherFilters = filters;
     reloadRows(params);
   }
-  function postSelectRow(rowId,key) {
+  function postSelectRow(rowId, key) {
     setTimeout(() => {
       const row = rows[rowId].cells[key];
       const input = row.input;
@@ -299,10 +322,8 @@
         const value = input.value;
         if (value.match(/^".*"$/g)) {
           input.focus();
-          input.setSelectionRange(1,value.length-1);
-        }
-        else
-          input.select();
+          input.setSelectionRange(1, value.length - 1);
+        } else input.select();
       }
     });
   }
@@ -334,7 +355,7 @@
     cypherFilters = {};
     cypherOrder = {
       key: identityKey,
-      order: "DESC"
+      order: "DESC",
     };
     columns = [];
     reloadRows(params);
@@ -343,8 +364,7 @@
 
   function handleKeyPress(e: KeyboardEvent) {
     if (e.code === "KeyS") {
-      if (e.ctrlKey || e.metaKey)
-        saveEditingRows();
+      if (e.ctrlKey || e.metaKey) saveEditingRows();
     }
   }
 
@@ -352,7 +372,7 @@
     document.addEventListener("keydown", handleKeyPress);
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
-    }
+    };
   });
 </script>
 
@@ -378,7 +398,9 @@
             {#each columns as column (column.key)}
               <th>
                 <div class="query-result-column">
-                  <div class="query-result-column-title">{lastKey(column.key)}</div>
+                  <div class="query-result-column-title">
+                    {lastKey(column.key)}
+                  </div>
                   <div class="query-result-column-margin" />
                 </div>
                 <div
@@ -513,8 +535,8 @@
     & > thead > tr.query-result-columns > th {
       position: relative;
       > .query-result-column {
-          display: inline-block;
-          white-space: nowrap;
+        display: inline-block;
+        white-space: nowrap;
         > .query-result-column-title {
           display: inline-block;
           min-width: 10em;
@@ -544,7 +566,6 @@
           background-color: $blue-100;
         }
         > .cell-view {
-
           width: 10em;
           min-width: 100%;
           height: 1.75rem;
