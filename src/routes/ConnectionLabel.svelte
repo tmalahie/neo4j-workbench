@@ -357,80 +357,113 @@
 </script>
 
 <main class="Connection">
-  <h1>{params.label}</h1>
-  <GoBack class="mb-2" />
-  {#if columns.length}
-    <form id="query-result-filter" on:submit|preventDefault={handleFilter}>
-      <Button type="submit" class="d-none" />
-    </form>
-    <Table class="query-result-table">
-      <thead>
-        <tr>
-          {#each columnGroups as columnGroup}
-            <th colspan={columnGroup.cols.length}>{columnGroup.key}</th>
-          {/each}
-        </tr>
-        <tr class="query-result-columns">
-          {#each columns as column (column.key)}
-            <th>
-              {lastKey(column.key)}
-              <div class="query-result-sort" class:query-result-sort-active={column.key === cypherOrder?.key} on:click={() => handleSort(column.key)}>
-                {#if column.key !== cypherOrder?.key}
-                  <Icon name="sort-down-alt" />
-                {:else}
-                  <Icon name={cypherOrder.order==="DESC" ? "sort-alpha-up-alt" : "sort-alpha-down"} />
-                {/if}
-              </div>
-            </th>
-          {/each}
-        </tr>
-        <tr>
-          {#each columns as column (column.key)}
-            <th><Input name={column.key} form="query-result-filter" placeholder="Filter..." /></th>
-          {/each}
-        </tr>
-      </thead>
-      <tbody>
-        {#each rows as row,i (row.cells[identityKey])}
+  <div class="connection-label-top">
+    <h1>{params.label}</h1>
+    <GoBack class="mb-2" />
+    <div class="query-raw">
+      {cypherQuery}
+    </div>
+    {#if columns.length}
+      <form id="query-result-filter" on:submit|preventDefault={handleFilter}>
+        <Button type="submit" class="d-none" />
+      </form>
+      <Table class="query-result-table">
+        <thead>
           <tr>
-            {#each columns as column (column.key)}
-              <td class:cell-edited={row.cells[column.key].edited}>
-                {#if row.cells[column.key].editing}
-                  <div class="cell-edit">
-                    <input type="text" bind:this={row.cells[column.key].input} bind:value={row.cells[column.key].nextValue} on:keydown={(event) => handleCellKeyPress(event,i,column.key)} on:blur={() => handleCellChange(i,column.key)} />
-                  </div>
-                {:else}
-                  <div class="cell-view" on:dblclick={() => handleCellStartEdit(i,column.key)}>
-                    {nodeDataToValue(row.cells[column.key].value)}
-                  </div>
-                {/if}
-              </td>
+            {#each columnGroups as columnGroup}
+              <th colspan={columnGroup.cols.length}>{columnGroup.key}</th>
             {/each}
           </tr>
-        {/each}
-      </tbody>
-    </Table>
-  {/if}
-  {#if loadingRows}
-    <Loading />
-  {:else if columns.length}
-    <div class="query-result-global-actions">
-      {#if cypherPaging.isNextPage}
-        <Button
-          type="button"
-          color="link"
-          on:click={loadMoreRows}>Load more rows</Button>
-      {/if}
-      <Button
-        type="button"
-        color="success"
-        on:click={saveEditingRows}>Save</Button>
-      <Button
-        type="button"
-        color="warning"
-        on:click={resetEditingRows}>Undo</Button>
-    </div>
-  {/if}
+          <tr class="query-result-columns">
+            {#each columns as column (column.key)}
+              <th>
+                <div class="query-result-column">
+                  <div class="query-result-column-title">{lastKey(column.key)}</div>
+                  <div class="query-result-column-margin" />
+                </div>
+                <div
+                  class="query-result-sort"
+                  class:query-result-sort-active={column.key ===
+                    cypherOrder?.key}
+                  on:click={() => handleSort(column.key)}
+                >
+                  {#if column.key !== cypherOrder?.key}
+                    <Icon name="sort-down-alt" />
+                  {:else}
+                    <Icon
+                      name={cypherOrder.order === "DESC"
+                        ? "sort-alpha-up-alt"
+                        : "sort-alpha-down"}
+                    />
+                  {/if}
+                </div>
+              </th>
+            {/each}
+          </tr>
+          <tr>
+            {#each columns as column (column.key)}
+              <th
+                ><Input
+                  name={column.key}
+                  form="query-result-filter"
+                  placeholder="Filter..."
+                /></th
+              >
+            {/each}
+          </tr>
+        </thead>
+        <tbody>
+          {#each rows as row, i (row.cells[identityKey])}
+            <tr>
+              {#each columns as column (column.key)}
+                <td class:cell-edited={row.cells[column.key].edited}>
+                  {#if row.cells[column.key].editing}
+                    <div class="cell-edit">
+                      <input
+                        type="text"
+                        bind:this={row.cells[column.key].input}
+                        bind:value={row.cells[column.key].nextValue}
+                        on:keydown={(event) =>
+                          handleCellKeyPress(event, i, column.key)}
+                        on:blur={() => handleCellChange(i, column.key)}
+                      />
+                    </div>
+                  {:else}
+                    <div
+                      class="cell-view"
+                      class:cell-view-null={row.cells[column.key].value == null}
+                      on:dblclick={() => handleCellStartEdit(i, column.key)}
+                    >
+                      {nodeDataToValue(row.cells[column.key].value)}
+                    </div>
+                  {/if}
+                </td>
+              {/each}
+            </tr>
+          {/each}
+        </tbody>
+      </Table>
+    {/if}
+  </div>
+  <div class="connection-label-bottom">
+    {#if loadingRows}
+      <Loading />
+    {:else if columns.length}
+      <div class="query-result-global-actions">
+        {#if cypherPaging.isNextPage}
+          <Button type="button" color="link" on:click={loadMoreRows}
+            >Load more rows</Button
+          >
+        {/if}
+        <Button type="button" color="success" on:click={saveEditingRows}
+          >Save</Button
+        >
+        <Button type="button" color="warning" on:click={resetEditingRows}
+          >Undo</Button
+        >
+      </div>
+    {/if}
+  </div>
 </main>
 
 <style lang="scss">
@@ -439,6 +472,29 @@
 
   $cell-outer-color: $gray-600;
   $cell-inner-color: $gray-400;
+
+  .Connection {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .connection-label-top {
+    overflow: auto;
+  }
+  .connection-label-bottom {
+    flex: 1;
+    margin-top: 1em;
+  }
+
+  .query-raw {
+    font-family: monospace;
+    background-color: $gray-200;
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.5rem;
+  }
 
   :global(.table.query-result-table) {
     width: auto;
@@ -451,12 +507,23 @@
       & :global(input.form-control) {
         padding: 0.125rem 0.25rem;
         font-size: 0.625rem;
-        width: 7rem;
+        width: 100%;
       }
     }
     & > thead > tr.query-result-columns > th {
       position: relative;
-      padding: 0.25rem 0.375rem;
+      > .query-result-column {
+          display: inline-block;
+          white-space: nowrap;
+        > .query-result-column-title {
+          display: inline-block;
+          min-width: 10em;
+        }
+        > .query-result-column-margin {
+          display: inline-block;
+          width: 0.75rem;
+        }
+      }
       > .query-result-sort {
         position: absolute;
         display: inline-block;
@@ -479,13 +546,19 @@
         > .cell-view {
 
           width: 10em;
+          min-width: 100%;
+          height: 1.75rem;
           padding: 0.5em;
           font-family: monospace;
           white-space: nowrap;
           overflow: hidden;
+          &.cell-view-null {
+            color: $gray-500;
+          }
         }
         > .cell-edit > input {
-          width: 10em;
+          width: 100%;
+          height: 100%;
           padding: 0.5em;
           font-family: monospace;
           white-space: nowrap;
