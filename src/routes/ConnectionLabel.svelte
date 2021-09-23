@@ -40,6 +40,7 @@
   }
   function nodeDataToString(data) {
     if (isDbNumber(data)) return dbNumberToString(data);
+    if (data == null) return "";
     return JSON.stringify(data);
   }
   function nodeDataToValue(data) {
@@ -361,6 +362,16 @@
     reloadRows(params);
   }
   $: handleRouteChange(params);
+  function hasEditedSomething(rows) {
+    for (const row of rows) {
+      for (const column of columns) {
+        const cell = row.cells[column.key];
+        if (cell.edited) return true;
+      }
+    }
+    return false;
+  }
+  $: editedSomething = hasEditedSomething(rows);
 
   function handleKeyPress(e: KeyboardEvent) {
     if (e.code === "KeyS") {
@@ -472,17 +483,25 @@
       <Loading />
     {:else if columns.length}
       <div class="query-result-global-actions">
+        <div>{rows.length} rows</div>
         {#if cypherPaging.isNextPage}
           <Button type="button" color="link" on:click={loadMoreRows}
             >Load more rows</Button
           >
+        {:else}
+          <div class="ms-4" />
         {/if}
-        <Button type="button" color="success" on:click={saveEditingRows}
-          >Save</Button
-        >
-        <Button type="button" color="warning" on:click={resetEditingRows}
-          >Undo</Button
-        >
+        <div class:d-none={!editedSomething}>
+          <Button
+            class="me-1"
+            type="button"
+            color="success"
+            on:click={saveEditingRows}>Save</Button
+          >
+          <Button type="button" color="warning" on:click={resetEditingRows}
+            >Undo</Button
+          >
+        </div>
       </div>
     {/if}
   </div>
@@ -596,5 +615,10 @@
         border-right: 1px solid $cell-outer-color;
       }
     }
+  }
+
+  .query-result-global-actions {
+    display: flex;
+    align-items: center;
   }
 </style>
