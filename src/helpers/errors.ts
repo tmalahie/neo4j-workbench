@@ -2,9 +2,9 @@ import { bootbox } from "bootbox-svelte";
 
 export function showError(e) {
   if (e?.message) {
-    bootbox.alert(e.message);
+    return bootbox.alert(e.message);
   }
   else {
-    bootbox.alert("Unknown error");
+    return bootbox.alert("Unknown error");
   }
 }

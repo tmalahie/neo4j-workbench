@@ -11,6 +11,7 @@
   import { bootbox } from "bootbox-svelte";
   import connections from "src/stores/connections";
   import { closeConnection } from "src/helpers/db";
+  import { showError } from "src/helpers/errors";
 
   let connection: DBConnectionParams;
   $: {
@@ -43,7 +44,7 @@
         closeConnection(params.id);
       } else await createConnection(connectionParams);
     } catch (e) {
-      bootbox.alert(e.message);
+      showError(e.message);
     }
     historyBackWFallback();
   }

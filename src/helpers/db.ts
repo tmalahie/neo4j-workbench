@@ -54,3 +54,43 @@ export function executeQuery<T>(id: string, query: string, params?: any) {
     params
   });
 }
+
+export function isDbNumber(data) {
+  return (
+    typeof data?.low === "number" &&
+    typeof data?.high === "number" &&
+    Object.keys(data).length === 2
+  );
+}
+const BIGINT_SEPARATOR = BigInt(Math.pow(2, 32));
+export function dbNumberToString(data) {
+  return (BigInt(data.high) * BIGINT_SEPARATOR + BigInt(data.low)).toString();
+}
+export function stringToDbNumber(str) {
+  const nb = BigInt(str);
+  return {
+    low: Number(nb % BIGINT_SEPARATOR),
+    high: Number(nb / BIGINT_SEPARATOR),
+  };
+}
+export function nodeDataToString(data) {
+  if (isDbNumber(data)) return dbNumberToString(data);
+  if (data == null) return "";
+  return JSON.stringify(data);
+}
+export function nodeDataToValue(data) {
+  if (isDbNumber(data)) return dbNumberToString(data);
+  if (data == null) return "NULL";
+  if (typeof data === "string") return data;
+  return JSON.stringify(data);
+}
+export function nodeDataToCypherValue(data) {
+  if (isDbNumber(data)) return dbNumberToString(data);
+  if (data == null) return "NULL";
+  return JSON.stringify(data).replace(/"(\w+)":/g, "$1:");
+}
+export function stringToNodeData(str) {
+  if (str === "") return null;
+  if (str.match(/^[+-]?\d+$/g)) return stringToDbNumber(str);
+  return JSON.parse(str);
+}
