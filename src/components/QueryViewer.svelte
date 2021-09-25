@@ -86,6 +86,8 @@
   import { showError } from "src/helpers/errors";
   import { onMount } from "svelte";
   import QueryCell from "./QueryCell.svelte";
+  import QueryCol from "./QueryCol.svelte";
+  import QueryFilter from "./QueryFilter.svelte";
 
   function propsToCypherNode(props: string[]) {
     switch (props[1]) {
@@ -250,11 +252,8 @@
     }
     rows = rows;
   }
-  function handleSort(key) {
-    if (query.sort?.key === key)
-      query.sort.order = query.sort.order === "DESC" ? "ASC" : "DESC";
-    else query.sort.order = "ASC";
-    query.sort.key = key;
+  function handleSort(sort: CypherSort) {
+    query.sort = sort;
     reloadRows(query);
   }
   async function handleFilter(e) {
@@ -365,41 +364,12 @@
           </tr>
           <tr class="query-result-columns">
             {#each columns as column (column.key)}
-              <th>
-                <div class="query-result-column">
-                  <div class="query-result-column-title">
-                    {lastKey(column.key)}
-                  </div>
-                  <div class="query-result-column-margin" />
-                </div>
-                <div
-                  class="query-result-sort"
-                  class:query-result-sort-active={column.key ===
-                    query.sort?.key}
-                  on:click={() => handleSort(column.key)}
-                >
-                  {#if column.key !== query.sort?.key}
-                    <Icon name="sort-down-alt" />
-                  {:else}
-                    <Icon
-                      name={query.sort.order === "DESC"
-                        ? "sort-alpha-up-alt"
-                        : "sort-alpha-down"}
-                    />
-                  {/if}
-                </div>
-              </th>
+              <QueryCol {column} sort={query.sort} onSort={handleSort} />
             {/each}
           </tr>
           <tr>
             {#each columns as column (column.key)}
-              <th
-                ><Input
-                  name={column.key}
-                  form="query-result-filter"
-                  placeholder="Filter..."
-                /></th
-              >
+              <QueryFilter {column} />
             {/each}
           </tr>
         </thead>
@@ -481,39 +451,11 @@
     width: auto;
     font-size: 0.75rem;
     margin-right: 0.25rem;
-    & > thead > tr > th {
-      text-align: center;
-      padding: 0.25rem;
-      border: 1px solid $cell-outer-color;
-      & :global(input.form-control) {
-        padding: 0.125rem 0.25rem;
-        font-size: 0.625rem;
-        width: 100%;
-      }
-    }
-    & > thead > tr.query-result-columns > th {
+    & > thead > tr > :global(th) {
       position: relative;
-      > .query-result-column {
-        display: inline-block;
-        white-space: nowrap;
-        > .query-result-column-title {
-          display: inline-block;
-          min-width: 10em;
-        }
-        > .query-result-column-margin {
-          display: inline-block;
-          width: 0.75rem;
-        }
-      }
-      > .query-result-sort {
-        position: absolute;
-        display: inline-block;
-        right: 0.25rem;
-        cursor: pointer;
-        &.query-result-sort-active {
-          color: $primary;
-        }
-      }
+      padding: 0.25rem;
+      text-align: center;
+      border: 1px solid $cell-outer-color;
     }
     & > tbody > tr > :global(td) {
       border-bottom: 1px solid $cell-outer-color;
