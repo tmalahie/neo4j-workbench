@@ -214,10 +214,13 @@
         )} SET ${propsToSet.join(",")}`;
         promises.push(
           executeQuery(connectionId, queryToRun).then(() => {
-            for (const column of columns)
+            for (const column of columns) {
+              const cell = group.cells[column.key];
               group.cells[column.key] = nodeDataToCell(
-                group.cells[column.key].value
+                cell.value,
+                cell.readOnly
               );
+            }
             rows = rows;
           })
         );
@@ -249,7 +252,8 @@
   async function resetEditingRows() {
     for (const row of rows) {
       for (const column of columns) {
-        setCell(row, column, nodeDataToCell(getCell(row, column).currentValue));
+        const cell = getCell(row, column);
+        setCell(row, column, nodeDataToCell(cell.currentValue, cell.readOnly));
       }
     }
     rows = rows;
