@@ -1,9 +1,82 @@
+<script lang="ts" context="module">
+  export type NodeCell = {
+    currentValue: any; // Current value in database
+    value: any; // Value changed
+    lastValue: string; // Last value before starting editing
+    nextValue: string; // Current value editing
+    editing?: boolean; // Is currently editing cell
+    edited?: boolean; // Has cell been edited
+    readOnly?: boolean; // Is the cell editable
+  };
+  export type NodeCellKey = {
+    row: number;
+    group: number;
+    prop: string;
+  };
+  export type NodeRowGroup = {
+    labels: string[];
+    cells: Record<string, NodeCell>;
+    _field: NodeResult<any>;
+  };
+  export type NodeRow = {
+    groups: NodeRowGroup[];
+  };
+  export type NodeCol = {
+    group: number;
+    key: string;
+  };
+  export type NodeColGroup = {
+    key: string;
+    cols: NodeCol[];
+  };
+  export type CypherFilters = Record<string, any>;
+  export type CypherSort = {
+    key: string;
+    order: "DESC" | "ASC";
+  };
+  export type CypherPaging = {
+    currentPage: number;
+    isNextPage: boolean;
+  };
+  export type CypherQuery = {
+    label: string;
+    filters?: CypherFilters;
+    sort?: CypherSort;
+    paging?: CypherPaging;
+  };
+  export function propsToKey(props: string[]) {
+    return props.join("::");
+  }
+  export function keyToProps(key: string) {
+    return key.split("::");
+  }
+  export function lastKey(key: string) {
+    const props = keyToProps(key);
+    return props[props.length - 1];
+  }
+  export function getCell(row: NodeRow, column: NodeCol): NodeCell {
+    return row.groups[column.group].cells[column.key];
+  }
+  export function setCell(row: NodeRow, column: NodeCol, value: NodeCell) {
+    return (row.groups[column.group].cells[column.key] = value);
+  }
+  export function nodeDataToCell(data, readOnly?: boolean): NodeCell {
+    const dataString = nodeDataToString(data);
+    return {
+      value: data,
+      currentValue: data,
+      lastValue: dataString,
+      nextValue: dataString,
+      readOnly,
+    };
+  }
+</script>
+
 <script lang="ts">
   import {
     executeQuery,
     nodeDataToCypherValue,
     nodeDataToString,
-    nodeDataToValue,
     stringToNodeData,
   } from "src/helpers/db";
 
@@ -12,26 +85,8 @@
   import { Button, Icon, Input, Table } from "sveltestrap";
   import { showError } from "src/helpers/errors";
   import { onMount } from "svelte";
+  import QueryCell from "./QueryCell.svelte";
 
-  function propsToKey(props: string[]) {
-    return props.join("::");
-  }
-  function keyToProps(key: string) {
-    return key.split("::");
-  }
-  function lastKey(key: string) {
-    const props = keyToProps(key);
-    return props[props.length - 1];
-  }
-  export function nodeDataToCell(data): NodeCell {
-    const dataString = nodeDataToString(data);
-    return {
-      value: data,
-      currentValue: data,
-      lastValue: dataString,
-      nextValue: dataString,
-    };
-  }
   function propsToCypherNode(props: string[]) {
     switch (props[1]) {
       case "identity":
@@ -48,42 +103,6 @@
 
   const identityKey = propsToKey(["0", "identity"]);
 
-  type NodeCell = {
-    currentValue: any; // Current value in database
-    value: any; // Value changed
-    lastValue: string; // Last value before starting editing
-    nextValue: string; // Current value editing
-    editing?: boolean; // Is currently editing cell
-    edited?: boolean; // Has cell been edited
-    input?: HTMLInputElement;
-  };
-  type NodeRow = {
-    label: string;
-    cells: Record<string, NodeCell>;
-    _fields: NodeResult<any>[];
-  };
-  type NodeCol = {
-    key: string;
-  };
-  type NodeColGroup = {
-    key: string;
-    cols: NodeCol[];
-  };
-  type CypherFilters = Record<string, any>;
-  type CypherSort = {
-    key: string;
-    order: "DESC" | "ASC";
-  };
-  type CypherPaging = {
-    currentPage: number;
-    isNextPage: boolean;
-  };
-  type CypherQuery = {
-    label: string;
-    filters?: CypherFilters;
-    sort?: CypherSort;
-    paging?: CypherPaging;
-  };
   export let connectionId: string;
   export let initialQuery: CypherQuery;
   let query;
@@ -102,36 +121,52 @@
         cypherQuery
       );
       const newRows: NodeRow[] = records.map((r) => {
-        const cells: Record<string, NodeCell> = {};
+        const groups: NodeRowGroup[] = [];
         const { _fields } = r;
         for (let i = 0; i < _fields.length; i++) {
           const field = _fields[i];
           const sI = `${i}`;
-          cells[propsToKey([sI, "identity"])] = nodeDataToCell(field.identity);
+          const cells: Record<string, NodeCell> = {};
+          cells[propsToKey([sI, "identity"])] = nodeDataToCell(
+            field.identity,
+            true
+          );
           let properties = field.properties;
-          for (const key in properties)
+          for (const key in properties) {
             cells[propsToKey([sI, "properties", key])] = nodeDataToCell(
               properties[key]
             );
+          }
+          groups.push({
+            labels: field.labels,
+            _field: field,
+            cells,
+          });
         }
         return {
-          label: query.label, // TODO
-          _fields,
-          cells,
+          groups,
         };
       });
       let allColumns: Record<string, NodeCol> = {};
-      for (const column of columns)
-        allColumns[column.key] = { key: column.key };
+      for (const column of columns) allColumns[column.key] = { ...column };
       for (const row of newRows) {
-        for (const key in row.cells) allColumns[key] = { key };
+        for (let i = 0; i < row.groups.length; i++) {
+          const { cells } = row.groups[i];
+          for (const key in cells) allColumns[key] = { group: i, key };
+        }
       }
       columns = Object.values(allColumns);
       rows = [...rows, ...newRows];
       for (const row of rows) {
         for (const column of columns) {
-          if (!row.cells[column.key])
-            row.cells[column.key] = nodeDataToCell(null);
+          if (!row.groups[column.group]) {
+            row.groups[column.group] = {
+              labels: [],
+              _field: undefined,
+              cells: {},
+            };
+          }
+          if (!getCell(row, column)) setCell(row, column, nodeDataToCell(null));
         }
       }
       query.paging.isNextPage = newRows.length >= nbRowsPerPage;
@@ -153,29 +188,32 @@
   async function saveEditingRows() {
     const promises = [];
     for (const row of rows) {
-      let cypherPropsToSet = [];
+      let cypherPropsToSet: Record<number, string[]> = {};
       for (const column of columns) {
-        const cell = row.cells[column.key];
+        const cell = getCell(row, column);
         if (cell.edited) {
-          cypherPropsToSet.push(
+          if (!cypherPropsToSet[column.group])
+            cypherPropsToSet[column.group] = [];
+          cypherPropsToSet[column.group].push(
             `${keyToCypherNode(column.key)}=${nodeDataToCypherValue(
               cell.value
             )}`
           );
         }
       }
-      if (cypherPropsToSet.length) {
-        const identityCell = row.cells[identityKey];
-        let queryToRun = `MATCH (n:${row.label}) WHERE ${keyToCypherNode(
-          identityKey
-        )}=${nodeDataToCypherValue(
+      for (const [i, propsToSet] of Object.entries(cypherPropsToSet)) {
+        const group = row.groups[i];
+        const identityCell = group.cells[identityKey];
+        let queryToRun = `MATCH (n:${group.labels.join(
+          ","
+        )}) WHERE ${keyToCypherNode(identityKey)}=${nodeDataToCypherValue(
           identityCell.currentValue
-        )} SET ${cypherPropsToSet.join(",")}`;
+        )} SET ${propsToSet.join(",")}`;
         promises.push(
           executeQuery(connectionId, queryToRun).then(() => {
             for (const column of columns)
-              row.cells[column.key] = nodeDataToCell(
-                row.cells[column.key].value
+              group.cells[column.key] = nodeDataToCell(
+                group.cells[column.key].value
               );
             rows = rows;
           })
@@ -206,40 +244,10 @@
   }
   async function resetEditingRows() {
     for (const row of rows) {
-      for (const column of columns)
-        row.cells[column.key] = nodeDataToCell(
-          row.cells[column.key].currentValue
-        );
-    }
-    rows = rows;
-  }
-  function handleCellKeyPress(event, rowId, key) {
-    if (event.code === "Enter") handleCellChange(rowId, key);
-    else if (event.code === "Escape") handleCellExit(rowId, key);
-  }
-  function handleCellExit(rowId, key) {
-    rows[rowId].cells[key].nextValue = rows[rowId].cells[key].lastValue;
-    rows[rowId].cells[key].editing = false;
-    rows = rows;
-  }
-  async function handleCellChange(rowId, key) {
-    if (rows[rowId].cells[key].nextValue !== rows[rowId].cells[key].lastValue) {
-      try {
-        const nextValueParsed = stringToNodeData(
-          rows[rowId].cells[key].nextValue
-        );
-        rows[rowId].cells[key].value = nextValueParsed;
-      } catch (e) {
-        await showError(e);
-        rows[rowId].cells[key].editing = true;
-        postSelectRow(rowId, key);
-        rows = rows;
-        return;
+      for (const column of columns) {
+        setCell(row, column, nodeDataToCell(getCell(row, column).currentValue));
       }
-      rows[rowId].cells[key].edited = true;
-      rows[rowId].cells[key].lastValue = rows[rowId].cells[key].nextValue;
     }
-    rows[rowId].cells[key].editing = false;
     rows = rows;
   }
   function handleSort(key) {
@@ -248,14 +256,6 @@
     else query.sort.order = "ASC";
     query.sort.key = key;
     reloadRows(query);
-  }
-  function handleCellStartEdit(rowId, key) {
-    const props = keyToProps(key);
-    if (props[1] !== "identity") {
-      rows[rowId].cells[key].editing = true;
-      rows = rows;
-      postSelectRow(rowId, key);
-    }
   }
   async function handleFilter(e) {
     const elts = e.target.elements;
@@ -272,19 +272,6 @@
     }
     query.filters = filters;
     reloadRows(query);
-  }
-  function postSelectRow(rowId, key) {
-    setTimeout(() => {
-      const row = rows[rowId].cells[key];
-      const input = row.input;
-      if (input) {
-        const value = input.value;
-        if (value.match(/^".*"$/g)) {
-          input.focus();
-          input.setSelectionRange(1, value.length - 1);
-        } else input.select();
-      }
-    });
   }
   let columnGroups: NodeColGroup[];
   $: {
@@ -307,10 +294,10 @@
     }
     columnGroups = groups;
   }
-  function hasEditedSomething(rows) {
+  function hasEditedSomething(rows: NodeRow[]) {
     for (const row of rows) {
       for (const column of columns) {
-        const cell = row.cells[column.key];
+        const cell = getCell(row, column);
         if (cell.edited) return true;
       }
     }
@@ -330,6 +317,10 @@
       document.removeEventListener("keydown", handleKeyPress);
     };
   });
+
+  function handleUpdateRows() {
+    rows = rows;
+  }
 
   function handleQueryChange(initialQuery: CypherQuery) {
     query = { ...initialQuery };
@@ -413,31 +404,10 @@
           </tr>
         </thead>
         <tbody>
-          {#each rows as row, i (row.cells[identityKey])}
+          {#each rows as row}
             <tr>
-              {#each columns as column (column.key)}
-                <td class:cell-edited={row.cells[column.key].edited}>
-                  {#if row.cells[column.key].editing}
-                    <div class="cell-edit">
-                      <input
-                        type="text"
-                        bind:this={row.cells[column.key].input}
-                        bind:value={row.cells[column.key].nextValue}
-                        on:keydown={(event) =>
-                          handleCellKeyPress(event, i, column.key)}
-                        on:blur={() => handleCellChange(i, column.key)}
-                      />
-                    </div>
-                  {:else}
-                    <div
-                      class="cell-view"
-                      class:cell-view-null={row.cells[column.key].value == null}
-                      on:dblclick={() => handleCellStartEdit(i, column.key)}
-                    >
-                      {nodeDataToValue(row.cells[column.key].value)}
-                    </div>
-                  {/if}
-                </td>
+              {#each columns as column}
+                <QueryCell {row} {column} onUpdateRows={handleUpdateRows} />
               {/each}
             </tr>
           {/each}
@@ -483,7 +453,6 @@
   @import "node_modules/bootstrap/scss/variables";
 
   $cell-outer-color: $gray-600;
-  $cell-inner-color: $gray-400;
 
   .QueryViewer {
     height: 100%;
@@ -546,43 +515,12 @@
         }
       }
     }
-    & > tbody > tr {
-      & > td {
-        padding: 0;
-        border: 1px solid $cell-inner-color;
-        cursor: default;
-        &.cell-edited {
-          border-color: $blue-300;
-          background-color: $blue-100;
-        }
-        > .cell-view {
-          width: 10em;
-          min-width: 100%;
-          height: 1.75rem;
-          padding: 0.5em;
-          font-family: monospace;
-          white-space: nowrap;
-          overflow: hidden;
-          &.cell-view-null {
-            color: $gray-500;
-          }
-        }
-        > .cell-edit > input {
-          width: 100%;
-          height: 100%;
-          padding: 0.5em;
-          font-family: monospace;
-          white-space: nowrap;
-          overflow: hidden;
-        }
-      }
-      &:last-child > td {
-        border-bottom: 1px solid $cell-outer-color;
-      }
-      & > td:first-child {
+    & > tbody > tr > :global(td) {
+      border-bottom: 1px solid $cell-outer-color;
+      &:first-child {
         border-left: 1px solid $cell-outer-color;
       }
-      & > td:last-child {
+      &:last-child {
         border-right: 1px solid $cell-outer-color;
       }
     }
