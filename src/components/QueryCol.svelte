@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Icon } from "sveltestrap";
 
-  import { lastKey } from "./QueryViewer.svelte";
   import type { CypherSort, NodeCol } from "./QueryViewer.svelte";
 
   export let column: NodeCol;
@@ -20,7 +19,7 @@
 <th>
   <div class="query-result-column">
     <div class="query-result-column-title">
-      {lastKey(column.key)}
+      {column.name}
     </div>
     <div class="query-result-column-margin" />
   </div>

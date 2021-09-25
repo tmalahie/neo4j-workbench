@@ -24,9 +24,12 @@
   export type NodeCol = {
     group: number;
     key: string;
+    name: string;
   };
   export type NodeColGroup = {
     key: string;
+    name: string;
+    labels: string[];
     cols: NodeCol[];
   };
   export type CypherFilters = Record<string, any>;
@@ -44,16 +47,17 @@
     sort?: CypherSort;
     paging?: CypherPaging;
   };
-  export function propsToKey(props: string[]) {
+  function propsToKey(props: string[]) {
     return props.join("::");
   }
-  export function keyToProps(key: string) {
+  function keyToProps(key: string) {
     return key.split("::");
   }
-  export function lastKey(key: string) {
+  function lastKey(key: string) {
     const props = keyToProps(key);
     return props[props.length - 1];
   }
+
   export function getCell(row: NodeRow, column: NodeCol): NodeCell {
     return row.groups[column.group].cells[column.key];
   }
@@ -102,6 +106,14 @@
   }
   function keyToCypherNode(key: string) {
     return propsToCypherNode(keyToProps(key));
+  }
+  function columnName(key) {
+    const props = keyToProps(key);
+    switch (props[1]) {
+      case "identity":
+        return "ID";
+    }
+    return lastKey(key);
   }
 
   const identityKey = propsToKey(["0", "identity"]);
@@ -155,7 +167,10 @@
       for (const row of newRows) {
         for (let i = 0; i < row.groups.length; i++) {
           const { cells } = row.groups[i];
-          for (const key in cells) allColumns[key] = { group: i, key };
+          for (const key in cells) {
+            const name = columnName(key);
+            allColumns[key] = { group: i, key, name };
+          }
         }
       }
       columns = Object.values(allColumns);
@@ -289,8 +304,13 @@
       let key = propsToKey(propsForGroup);
       if (key !== lastKey) {
         lastKey = key;
+        const labels = rows[0]?.groups[+propsForGroup[0]]?.labels ?? [];
+        propsForGroup[0] = labels.join(",");
+        const name = propsForGroup[propsForGroup.length - 1];
         currentGroup = {
           key,
+          name,
+          labels,
           cols: [],
         };
         groups.push(currentGroup);
@@ -365,7 +385,7 @@
         <thead>
           <tr>
             {#each columnGroups as columnGroup}
-              <th colspan={columnGroup.cols.length}>{columnGroup.key}</th>
+              <th colspan={columnGroup.cols.length}>{columnGroup.name}</th>
             {/each}
           </tr>
           <tr class="query-result-columns">
