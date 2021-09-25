@@ -77,6 +77,7 @@
     executeQuery,
     nodeDataToCypherValue,
     nodeDataToString,
+    nodeDataToValue,
     stringToNodeData,
   } from "src/helpers/db";
 
@@ -230,7 +231,8 @@
     let cypherVars = [];
     for (const key in filters) {
       let filterVar = keyToCypherNode(key);
-      cypherWhere.push(`${filterVar}=${filters[key]}`);
+      if ("NULL" === filters[key]) cypherWhere.push(`${filterVar} IS NULL`);
+      else cypherWhere.push(`${filterVar}=${filters[key]}`);
       cypherVars.push(filters[key]);
     }
     if (cypherWhere.length) res += " WHERE " + cypherWhere.join(" AND ");
@@ -262,9 +264,9 @@
     for (const elt of elts) {
       if (elt.value) {
         try {
-          filters[elt.name] = nodeDataToString(stringToNodeData(elt.value));
+          filters[elt.name] = nodeDataToValue(stringToNodeData(elt.value));
         } catch (e) {
-          filters[elt.name] = nodeDataToString(elt.value);
+          filters[elt.name] = nodeDataToValue(elt.value);
           elt.value = filters[elt.name];
         }
       }

@@ -91,6 +91,7 @@ export function nodeDataToCypherValue(data) {
 }
 export function stringToNodeData(str) {
   if (str === "") return null;
+  if (str === "NULL") return null;
   if (str.match(/^[+-]?\d+$/g)) return stringToDbNumber(str);
   return JSON.parse(str);
 }
