@@ -42,7 +42,8 @@
     isNextPage: boolean;
   };
   export type CypherQuery = {
-    label: string;
+    id?: string;
+    labels?: string[];
     filters?: CypherFilters;
     sort?: CypherSort;
     paging?: CypherPaging;
@@ -87,12 +88,13 @@
 
   import type { NodeResult } from "src/helpers/db";
   import Loading from "src/routes/Loading.svelte";
-  import { Button, Icon, Input, Table } from "sveltestrap";
+  import { Button, Table } from "sveltestrap";
   import { showError } from "src/helpers/errors";
   import { onMount } from "svelte";
   import QueryCell from "./QueryCell.svelte";
   import QueryCol from "./QueryCol.svelte";
   import QueryFilter from "./QueryFilter.svelte";
+  import showContextMenu from "src/helpers/contextMenu";
 
   function propsToCypherNode(props: string[]) {
     switch (props[1]) {
@@ -107,6 +109,14 @@
   function keyToCypherNode(key: string) {
     return propsToCypherNode(keyToProps(key));
   }
+  function labelsToCypherNode(labels) {
+    return "n" + labels.map((label) => `:${label}`).join("");
+  }
+  function filterToCypherWhere(key: string, value: string) {
+    let filterVar = keyToCypherNode(key);
+    if ("NULL" === value) return `${filterVar} IS NULL`;
+    else return `${filterVar}=${value}`;
+  }
   function columnName(key) {
     const props = keyToProps(key);
     switch (props[1]) {
@@ -116,7 +126,7 @@
     return lastKey(key);
   }
 
-  const identityKey = propsToKey(["0", "identity"]);
+  const identityKey = (group) => propsToKey([`${group}`, "identity"]);
 
   export let connectionId: string;
   export let initialQuery: CypherQuery;
@@ -221,10 +231,11 @@
       }
       for (const [i, propsToSet] of Object.entries(cypherPropsToSet)) {
         const group = row.groups[i];
-        const identityCell = group.cells[identityKey];
-        let queryToRun = `MATCH (n:${group.labels.join(
-          ","
-        )}) WHERE ${keyToCypherNode(identityKey)}=${nodeDataToCypherValue(
+        const groupIdentityKey = identityKey(i);
+        const identityCell = group.cells[groupIdentityKey];
+        let queryToRun = `MATCH (${labelsToCypherNode(
+          group.labels
+        )}) WHERE ${keyToCypherNode(groupIdentityKey)}=${nodeDataToCypherValue(
           identityCell.currentValue
         )} SET ${propsToSet.join(",")}`;
         promises.push(
@@ -243,22 +254,20 @@
     }
     Promise.all(promises).catch(showError);
   }
-  function buildCypherQuery({ label, filters, sort, paging }: CypherQuery) {
-    let res = `MATCH (n:${label})`;
+  function buildCypherQuery({
+    id,
+    labels,
+    filters,
+    sort,
+    paging,
+  }: CypherQuery) {
+    let res = `MATCH (${labelsToCypherNode(labels)})`;
     let cypherWhere = [];
-    let cypherVars = [];
-    for (const key in filters) {
-      let filterVar = keyToCypherNode(key);
-      if ("NULL" === filters[key]) cypherWhere.push(`${filterVar} IS NULL`);
-      else cypherWhere.push(`${filterVar}=${filters[key]}`);
-      cypherVars.push(filters[key]);
-    }
+    if (id !== undefined)
+      cypherWhere.push(filterToCypherWhere(identityKey(0), id));
+    for (const key in filters)
+      cypherWhere.push(filterToCypherWhere(key, filters[key]));
     if (cypherWhere.length) res += " WHERE " + cypherWhere.join(" AND ");
-    let cypherVarsDict = {};
-    for (let i = 0; i < cypherVars.length; i++) {
-      const cypherVar = cypherVars[i];
-      cypherVarsDict[`var${i}`] = cypherVar;
-    }
     res += " RETURN n";
     if (sort) res += ` ORDER BY ${keyToCypherNode(sort.key)} ${sort.order}`;
     res += ` SKIP ${paging.currentPage * nbRowsPerPage} LIMIT ${nbRowsPerPage}`;
@@ -283,9 +292,11 @@
     for (const elt of elts) {
       if (elt.value) {
         try {
-          filters[elt.name] = nodeDataToValue(stringToNodeData(elt.value));
+          filters[elt.name] = nodeDataToCypherValue(
+            stringToNodeData(elt.value)
+          );
         } catch (e) {
-          filters[elt.name] = nodeDataToValue(elt.value);
+          filters[elt.name] = nodeDataToCypherValue(elt.value);
           elt.value = filters[elt.name];
         }
       }
@@ -305,7 +316,7 @@
       if (key !== lastKey) {
         lastKey = key;
         const labels = rows[0]?.groups[+propsForGroup[0]]?.labels ?? [];
-        propsForGroup[0] = labels.join(",");
+        propsForGroup[0] = labels.join(":");
         const name = propsForGroup[propsForGroup.length - 1];
         currentGroup = {
           key,
@@ -346,13 +357,31 @@
   function handleUpdateRows() {
     rows = rows;
   }
+  function handleContextMenu(e, row: NodeRow) {
+    e.preventDefault();
+    showContextMenu({
+      items: [
+        {
+          label: "View relationships",
+          onclick: () => {
+            window.open(
+              `#/connections/${connectionId}/node/${nodeDataToValue(
+                row.groups[0].cells[identityKey(0)].currentValue
+              )}/relationships`
+            );
+          },
+        },
+      ],
+    });
+  }
 
   function handleQueryChange(initialQuery: CypherQuery) {
     query = { ...initialQuery };
+    if (!query.labels) query.labels = [];
     if (!query.filters) query.filters = {};
     if (!query.sort) {
       query.sort = {
-        key: identityKey,
+        key: identityKey(0),
         order: "DESC",
       };
     }
@@ -401,7 +430,7 @@
         </thead>
         <tbody>
           {#each rows as row}
-            <tr>
+            <tr on:contextmenu={(e) => handleContextMenu(e, row)}>
               {#each columns as column}
                 <QueryCell {row} {column} onUpdateRows={handleUpdateRows} />
               {/each}

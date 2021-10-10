@@ -7,6 +7,8 @@
     CardTitle,
     Icon,
   } from "sveltestrap";
+
+  document.title = "Neo4j workbench";
 </script>
 
 <main class="Home">

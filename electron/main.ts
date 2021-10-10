@@ -1,5 +1,6 @@
 // Modules to control application life and create native browser window
-import { app, screen, BrowserView, BrowserWindow, globalShortcut } from "electron";
+import { app, screen, BrowserView, BrowserWindow, globalShortcut, Menu, MenuItem } from "electron";
+const contextMenu = require('electron-context-menu');
 import neo4jConnector, { Session } from "neo4j-driver";
 import type { DBConnectionParams } from "./types/db";
 
@@ -44,6 +45,10 @@ function openTab(url) {
       nodeIntegration: true,
       contextIsolation: false
     }
+  });
+
+  contextMenu({
+    window: browserView.webContents
   });
 
   browserView.setAutoResize({ horizontal: true, vertical: true });
@@ -225,6 +230,19 @@ addActionListener("getItem", getItem)
 addActionListener("setItem", setItem)
 
 addActionListener("deleteItem", deleteItem)
+
+addActionListener("showContextMenu", async (data: { items: any[] }, event: Electron.IpcMainEvent) => {
+  var menu = new Menu();
+
+  for (const [i, item] of Object.entries(data.items)) {
+    menu.append(new MenuItem({
+      label: item.label, click: function () {
+        event.sender.send(`contextmenu.click`, { item: i });
+      }
+    }));
+  }
+  menu.popup();
+});
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

@@ -1,20 +1,20 @@
 <script lang="ts">
-  export let params: { id: string; label: string };
+  export let params: { id: string; nodeId: string };
   import GoBack from "src/components/GoBack.svelte";
   import QueryViewer from "src/components/QueryViewer.svelte";
 
-  document.title = params.label;
+  document.title = `#${params.nodeId} - relationships`;
 </script>
 
 <main class="Connection">
   <QueryViewer
     initialQuery={{
-      labels: [params.label],
+      id: params.nodeId,
     }}
     connectionId={params.id}
   >
     <svelte:fragment slot="before-header">
-      <h1>{params.label}</h1>
+      <h1>Node #{params.nodeId} - relationships</h1>
       <GoBack class="mb-2" />
     </svelte:fragment>
   </QueryViewer>

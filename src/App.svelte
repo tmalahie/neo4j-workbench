@@ -6,6 +6,7 @@
   import Connection from "./routes/Connection.svelte";
   import Connections from "./routes/Connections.svelte";
   import ConnectionLabel from "./routes/ConnectionLabel.svelte";
+  import ConnectionRelationships from "./routes/ConnectionRelationships.svelte";
   import { Bootbox } from "bootbox-svelte";
   import Menu from "./components/Menu.svelte";
   import Tabs from "./components/Tabs.svelte";
@@ -16,6 +17,7 @@
     "/connections/new": Connection,
     "/connections/:id": Connection,
     "/connections/:id/:label": ConnectionLabel,
+    "/connections/:id/node/:nodeId/relationships": ConnectionRelationships,
     "/loading": Loading,
     "*": NotFound,
   };
