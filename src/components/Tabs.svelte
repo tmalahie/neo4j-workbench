@@ -46,7 +46,7 @@
     }
     document.addEventListener("click", linkClickListener, true);
 
-    ipcRenderer.on("tabs", (_event: any, response: TabState) => {
+    ipcRenderer?.on("tabs", (_event: any, response: TabState) => {
       tabs = response.tabs;
       currentTab = response.currentTab;
     });

@@ -2,28 +2,51 @@
   "name": "neo4j-workbench",
   "version": "0.0.0",
   "type": "module",
+  "homepage": ".",
+  "main": "build/electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "postinstall": "electron-builder install-app-deps",
+    "electron:dev": "tsc-watch -p electron --onSuccess \"electron .\"",
+    "electron:build": "npm build && tsc -p electron && electron-builder"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^1.0.0-next.11",
     "@tsconfig/svelte": "^2.0.1",
     "bootbox-svelte": "^1.0.9",
+    "electron": "^15.1.2",
+    "electron-builder": "^22.13.1",
     "sass": "^1.38.2",
     "svelte": "^3.37.0",
     "svelte-check": "^2.1.0",
     "svelte-preprocess": "^4.7.2",
     "svelte-spa-router": "^3.2.0",
+    "tsc-watch": "^4.5.0",
     "tslib": "^2.2.0",
     "typescript": "^4.3.2",
-    "vite": "^2.5.1"
+    "vite": "^2.6.4"
   },
   "dependencies": {
+    "@types/electron-devtools-installer": "^2.2.0",
     "bootstrap": "^5.1.0",
+    "electron-devtools-installer": "^3.2.0",
+    "electron-is-dev": "^2.0.0",
+    "electron-json-storage": "^4.5.0",
+    "electron-reload": "^2.0.0-alpha.1",
+    "neo4j-driver": "^4.3.3",
     "sveltestrap": "^5.6.2",
     "uuid": "^8.3.2"
+  },
+  "build": {
+    "extends": null,
+    "files": [
+      "build/**/*"
+    ],
+    "directories": {
+      "buildResources": "assets"
+    }
   }
 }
