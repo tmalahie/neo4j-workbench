@@ -1,5 +1,6 @@
 <script lang="ts" context="module">
   export type NodeCell = {
+    input?: HTMLInputElement;
     currentValue: any; // Current value in database
     value: any; // Value changed
     lastValue: string; // Last value before starting editing
@@ -83,6 +84,7 @@
     nodeDataToCypherValue,
     nodeDataToString,
     nodeDataToValue,
+    QueryResult,
     stringToNodeData,
   } from "src/helpers/db";
 
@@ -126,6 +128,47 @@
     return lastKey(key);
   }
 
+  function recordToRow(r: QueryResult<any>["records"][0]) {
+    const groups: NodeRowGroup[] = [];
+    const { _fields } = r;
+    for (let i = 0; i < _fields.length; i++) {
+      const field = _fields[i];
+      const sI = `${i}`;
+      const cells: Record<string, NodeCell> = {};
+      cells[propsToKey([sI, "identity"])] = nodeDataToCell(
+        field.identity,
+        true
+      );
+      let properties = field.properties;
+      for (const key in properties) {
+        cells[propsToKey([sI, "properties", key])] = nodeDataToCell(
+          properties[key]
+        );
+      }
+      groups.push({
+        labels: field.labels,
+        _field: field,
+        cells,
+      });
+    }
+    return {
+      groups,
+    };
+  }
+  function fillEmptyColumns(row: NodeRow, columns: NodeCol[]) {
+    for (const column of columns) {
+      if (!row.groups[column.group]) {
+        row.groups[column.group] = {
+          labels: [],
+          _field: undefined,
+          cells: {},
+        };
+      }
+      if (!getCell(row, column)) setCell(row, column, nodeDataToCell(null));
+    }
+    return row;
+  }
+
   const identityKey = (group) => propsToKey([`${group}`, "identity"]);
 
   export let connectionId: string;
@@ -135,6 +178,7 @@
   const nbRowsPerPage = 50;
   let loadingRows = true;
   let rows: NodeRow[] = [];
+  let addingRows: NodeRow[] = [];
   let columns: NodeCol[] = [];
   let cypherQuery: string;
   async function loadRows(query: CypherQuery) {
@@ -145,33 +189,7 @@
         connectionId,
         cypherQuery
       );
-      const newRows: NodeRow[] = records.map((r) => {
-        const groups: NodeRowGroup[] = [];
-        const { _fields } = r;
-        for (let i = 0; i < _fields.length; i++) {
-          const field = _fields[i];
-          const sI = `${i}`;
-          const cells: Record<string, NodeCell> = {};
-          cells[propsToKey([sI, "identity"])] = nodeDataToCell(
-            field.identity,
-            true
-          );
-          let properties = field.properties;
-          for (const key in properties) {
-            cells[propsToKey([sI, "properties", key])] = nodeDataToCell(
-              properties[key]
-            );
-          }
-          groups.push({
-            labels: field.labels,
-            _field: field,
-            cells,
-          });
-        }
-        return {
-          groups,
-        };
-      });
+      const newRows: NodeRow[] = records.map(recordToRow);
       let allColumns: Record<string, NodeCol> = {};
       for (const column of columns) allColumns[column.key] = { ...column };
       for (const row of newRows) {
@@ -185,18 +203,7 @@
       }
       columns = Object.values(allColumns);
       rows = [...rows, ...newRows];
-      for (const row of rows) {
-        for (const column of columns) {
-          if (!row.groups[column.group]) {
-            row.groups[column.group] = {
-              labels: [],
-              _field: undefined,
-              cells: {},
-            };
-          }
-          if (!getCell(row, column)) setCell(row, column, nodeDataToCell(null));
-        }
-      }
+      for (const row of rows) fillEmptyColumns(row, columns);
       query.paging.isNextPage = newRows.length >= nbRowsPerPage;
       loadingRows = false;
     } catch (e) {
@@ -212,6 +219,33 @@
   async function loadMoreRows() {
     query.paging.currentPage = 1;
     loadRows(query);
+  }
+  function addRow() {
+    const groups: NodeRowGroup[] = [];
+    for (const column of columns) {
+      if (!groups[column.group]) {
+        groups[column.group] = {
+          _field: null,
+          labels: initialQuery.labels,
+          cells: {},
+        };
+      }
+      const cell = nodeDataToCell(null);
+      if (column.key === identityKey(column.group)) cell.readOnly = true;
+      else cell.edited = true;
+      groups[column.group].cells[column.key] = cell;
+    }
+    const firstCell = groups[0]?.cells[columns[1]?.key];
+    if (firstCell) firstCell.editing = true;
+    const newRow: NodeRow = {
+      groups,
+    };
+    addingRows.push(newRow);
+    addingRows = addingRows;
+    setTimeout(() => {
+      let { input } = firstCell;
+      if (input) input.focus();
+    });
   }
   async function saveEditingRows() {
     const promises = [];
@@ -252,6 +286,38 @@
         );
       }
     }
+    for (const row of addingRows) {
+      let cypherPropsToSet: Record<number, string[]> = {};
+      for (const column of columns) {
+        const cell = getCell(row, column);
+        if (cell.edited) {
+          if (!cypherPropsToSet[column.group])
+            cypherPropsToSet[column.group] = [];
+          cypherPropsToSet[column.group].push(
+            `${keyToCypherNode(column.key)}=${nodeDataToCypherValue(
+              cell.value
+            )}`
+          );
+        }
+      }
+      for (const [i, propsToSet] of Object.entries(cypherPropsToSet)) {
+        const group = row.groups[i];
+        let queryToRun = `CREATE (${labelsToCypherNode(group.labels)})`;
+        if (propsToSet.length) queryToRun += ` SET ${propsToSet.join(",")}`;
+        queryToRun += ` RETURN n`;
+        promises.push(
+          executeQuery<NodeResult<any>>(connectionId, queryToRun).then(
+            ({ records }) => {
+              addingRows = addingRows.filter((addingRow) => addingRow !== row);
+              let newRows = records.map((record) => {
+                return fillEmptyColumns(recordToRow(record), columns);
+              });
+              rows = [...newRows, ...rows];
+            }
+          )
+        );
+      }
+    }
     Promise.all(promises).catch(showError);
   }
   function buildCypherQuery({
@@ -281,6 +347,7 @@
       }
     }
     rows = rows;
+    addingRows = [];
   }
   function handleSort(sort: CypherSort) {
     query.sort = sort;
@@ -330,7 +397,8 @@
     }
     columnGroups = groups;
   }
-  function hasEditedSomething(rows: NodeRow[]) {
+  function hasEditedSomething(rows: NodeRow[], addingRows: NodeRow[]) {
+    if (addingRows.length) return true;
     for (const row of rows) {
       for (const column of columns) {
         const cell = getCell(row, column);
@@ -339,7 +407,7 @@
     }
     return false;
   }
-  $: editedSomething = hasEditedSomething(rows);
+  $: editedSomething = hasEditedSomething(rows, addingRows);
 
   function handleKeyPress(e: KeyboardEvent) {
     if (e.code === "KeyS") {
@@ -354,6 +422,9 @@
     };
   });
 
+  function handleInsertRows() {
+    addingRows = addingRows;
+  }
   function handleUpdateRows() {
     rows = rows;
   }
@@ -429,6 +500,13 @@
           </tr>
         </thead>
         <tbody>
+          {#each addingRows as row}
+            <tr>
+              {#each columns as column}
+                <QueryCell {row} {column} onUpdateRows={handleInsertRows} />
+              {/each}
+            </tr>
+          {/each}
           {#each rows as row}
             <tr on:contextmenu={(e) => handleContextMenu(e, row)}>
               {#each columns as column}
@@ -447,7 +525,7 @@
         <Loading />
       {:else if columns.length}
         <div class="query-result-global-actions">
-          <div>{rows.length} rows</div>
+          <div>{rows.length} row{rows.length != 1 ? "s" : ""}</div>
           {#if query.paging.isNextPage}
             <Button type="button" color="link" on:click={loadMoreRows}
               >Load more rows</Button
@@ -455,7 +533,8 @@
           {:else}
             <div class="ms-4" />
           {/if}
-          <div class:d-none={!editedSomething}>
+          <Button type="button" color="info" on:click={addRow}>Add row</Button>
+          <div class:d-none={!editedSomething} class="ms-2">
             <Button
               class="me-1"
               type="button"

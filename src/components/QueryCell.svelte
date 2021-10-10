@@ -1,5 +1,9 @@
 <script lang="ts">
-  import { nodeDataToValue, stringToNodeData } from "src/helpers/db";
+  import {
+    nodeDataToCypherValue,
+    nodeDataToValue,
+    stringToNodeData,
+  } from "src/helpers/db";
   import { showError } from "src/helpers/errors";
 
   import type { NodeRow, NodeCol, NodeCell } from "./QueryViewer.svelte";
@@ -22,11 +26,7 @@
         const nextValueParsed = stringToNodeData(cell.nextValue);
         cell.value = nextValueParsed;
       } catch (e) {
-        await showError(e);
-        cell.editing = true;
-        postSelectCell();
-        onUpdateRows();
-        return;
+        cell.value = cell.nextValue;
       }
       cell.edited = true;
       cell.lastValue = cell.nextValue;
@@ -43,6 +43,7 @@
   }
   function postSelectCell() {
     setTimeout(() => {
+      let { input } = cell;
       if (input) {
         const value = input.value;
         if (value.match(/^".*"$/g)) {
@@ -54,7 +55,6 @@
   }
 
   $: cell = row.groups[column.group].cells[column.key];
-  let input: HTMLInputElement;
 </script>
 
 <td class:cell-edited={cell.edited}>
@@ -62,7 +62,7 @@
     <div class="cell-edit">
       <input
         type="text"
-        bind:this={input}
+        bind:this={cell.input}
         bind:value={cell.nextValue}
         on:keydown={(event) => handleCellKeyPress(event, cell)}
         on:blur={() => handleCellChange(cell)}
@@ -72,7 +72,7 @@
     <div
       class="cell-view"
       class:cell-view-null={cell.value == null}
-      on:dblclick={() => handleCellStartEdit(cell)}
+      on:click={() => handleCellStartEdit(cell)}
     >
       {nodeDataToValue(cell.value)}
     </div>
