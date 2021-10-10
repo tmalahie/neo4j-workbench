@@ -20,6 +20,7 @@
     _field: NodeResult<any>;
   };
   export type NodeRow = {
+    deleting?: boolean;
     groups: NodeRowGroup[];
   };
   export type NodeCol = {
@@ -250,20 +251,8 @@
   async function saveEditingRows() {
     const promises = [];
     for (const row of rows) {
-      let cypherPropsToSet: Record<number, string[]> = {};
-      for (const column of columns) {
-        const cell = getCell(row, column);
-        if (cell.edited) {
-          if (!cypherPropsToSet[column.group])
-            cypherPropsToSet[column.group] = [];
-          cypherPropsToSet[column.group].push(
-            `${keyToCypherNode(column.key)}=${nodeDataToCypherValue(
-              cell.value
-            )}`
-          );
-        }
-      }
-      for (const [i, propsToSet] of Object.entries(cypherPropsToSet)) {
+      if (row.deleting) {
+        const i = 0;
         const group = row.groups[i];
         const groupIdentityKey = identityKey(i);
         const identityCell = group.cells[groupIdentityKey];
@@ -271,19 +260,50 @@
           group.labels
         )}) WHERE ${keyToCypherNode(groupIdentityKey)}=${nodeDataToCypherValue(
           identityCell.currentValue
-        )} SET ${propsToSet.join(",")}`;
+        )} DETACH DELETE n`;
         promises.push(
           executeQuery(connectionId, queryToRun).then(() => {
-            for (const column of columns) {
-              const cell = group.cells[column.key];
-              group.cells[column.key] = nodeDataToCell(
-                cell.value,
-                cell.readOnly
-              );
-            }
-            rows = rows;
+            rows = rows.filter((r) => r !== row);
           })
         );
+      } else {
+        let cypherPropsToSet: Record<number, string[]> = {};
+        for (const column of columns) {
+          const cell = getCell(row, column);
+          if (cell.edited) {
+            if (!cypherPropsToSet[column.group])
+              cypherPropsToSet[column.group] = [];
+            cypherPropsToSet[column.group].push(
+              `${keyToCypherNode(column.key)}=${nodeDataToCypherValue(
+                cell.value
+              )}`
+            );
+          }
+        }
+        for (const [i, propsToSet] of Object.entries(cypherPropsToSet)) {
+          const group = row.groups[i];
+          const groupIdentityKey = identityKey(i);
+          const identityCell = group.cells[groupIdentityKey];
+          let queryToRun = `MATCH (${labelsToCypherNode(
+            group.labels
+          )}) WHERE ${keyToCypherNode(
+            groupIdentityKey
+          )}=${nodeDataToCypherValue(
+            identityCell.currentValue
+          )} SET ${propsToSet.join(",")}`;
+          promises.push(
+            executeQuery(connectionId, queryToRun).then(() => {
+              for (const column of columns) {
+                const cell = group.cells[column.key];
+                group.cells[column.key] = nodeDataToCell(
+                  cell.value,
+                  cell.readOnly
+                );
+              }
+              rows = rows;
+            })
+          );
+        }
       }
     }
     for (const row of addingRows) {
@@ -341,6 +361,7 @@
   }
   async function resetEditingRows() {
     for (const row of rows) {
+      delete row.deleting;
       for (const column of columns) {
         const cell = getCell(row, column);
         setCell(row, column, nodeDataToCell(cell.currentValue, cell.readOnly));
@@ -400,6 +421,7 @@
   function hasEditedSomething(rows: NodeRow[], addingRows: NodeRow[]) {
     if (addingRows.length) return true;
     for (const row of rows) {
+      if (row.deleting) return true;
       for (const column of columns) {
         const cell = getCell(row, column);
         if (cell.edited) return true;
@@ -440,6 +462,13 @@
                 row.groups[0].cells[identityKey(0)].currentValue
               )}/relationships`
             );
+          },
+        },
+        {
+          label: "Delete row",
+          onclick: () => {
+            row.deleting = true;
+            rows = rows;
           },
         },
       ],
@@ -508,7 +537,10 @@
             </tr>
           {/each}
           {#each rows as row}
-            <tr on:contextmenu={(e) => handleContextMenu(e, row)}>
+            <tr
+              class:row-deleting={row.deleting}
+              on:contextmenu={(e) => handleContextMenu(e, row)}
+            >
               {#each columns as column}
                 <QueryCell {row} {column} onUpdateRows={handleUpdateRows} />
               {/each}
@@ -591,13 +623,21 @@
       text-align: center;
       border: 1px solid $cell-outer-color;
     }
-    & > tbody > tr > :global(td) {
-      border-bottom: 1px solid $cell-outer-color;
-      &:first-child {
-        border-left: 1px solid $cell-outer-color;
+    & > tbody > tr {
+      &.row-deleting {
+        background-color: $danger;
+        & > :global(td) {
+          background-color: $danger;
+        }
       }
-      &:last-child {
-        border-right: 1px solid $cell-outer-color;
+      & > :global(td) {
+        border-bottom: 1px solid $cell-outer-color;
+        &:first-child {
+          border-left: 1px solid $cell-outer-color;
+        }
+        &:last-child {
+          border-right: 1px solid $cell-outer-color;
+        }
       }
     }
   }
