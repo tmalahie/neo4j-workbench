@@ -1,7 +1,5 @@
 <script lang="ts">
-  import Router from "svelte-spa-router";
   import Home from "./routes/Home.svelte";
-  import Loading from "./routes/Loading.svelte";
   import NotFound from "./routes/NotFound.svelte";
   import Connection from "./routes/Connection.svelte";
   import Connections from "./routes/Connections.svelte";
@@ -10,6 +8,7 @@
   import { Bootbox } from "bootbox-svelte";
   import Menu from "./components/Menu.svelte";
   import Tabs from "./components/Tabs.svelte";
+  import Router from "./components/Router.svelte";
 
   const routes = {
     "/": Home,
@@ -18,7 +17,6 @@
     "/connections/:id": Connection,
     "/connections/:id/:label": ConnectionLabel,
     "/connections/:id/node/:nodeId/relationships": ConnectionRelationships,
-    "/loading": Loading,
     "*": NotFound,
   };
 </script>

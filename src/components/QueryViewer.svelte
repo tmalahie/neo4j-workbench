@@ -90,7 +90,6 @@
   } from "src/helpers/db";
 
   import type { NodeResult } from "src/helpers/db";
-  import Loading from "src/routes/Loading.svelte";
   import { Button, Table } from "sveltestrap";
   import { showError } from "src/helpers/errors";
   import { onMount } from "svelte";
@@ -98,6 +97,8 @@
   import QueryCol from "./QueryCol.svelte";
   import QueryFilter from "./QueryFilter.svelte";
   import showContextMenu from "src/helpers/contextMenu";
+  import { openTab } from "src/stores/tabs";
+  import Loading from "./Loading.svelte";
 
   function propsToCypherNode(props: string[]) {
     switch (props[1]) {
@@ -457,7 +458,7 @@
         {
           label: "View relationships",
           onclick: () => {
-            window.open(
+            openTab(
               `#/connections/${connectionId}/node/${nodeDataToValue(
                 row.groups[0].cells[identityKey(0)].currentValue
               )}/relationships`

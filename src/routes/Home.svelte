@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { setTabTitle, Tab } from "src/stores/tabs";
+
   import {
     Button,
     Card,
@@ -8,7 +10,8 @@
     Icon,
   } from "sveltestrap";
 
-  document.title = "Neo4j workbench";
+  export let currentTab: Tab;
+  setTabTitle(currentTab, "Neo4j workbench");
 </script>
 
 <main class="Home">

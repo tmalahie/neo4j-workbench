@@ -1,9 +1,11 @@
 <script lang="ts">
-  export let params: { id: string; nodeId: string };
+  import { setTabTitle, Tab } from "src/stores/tabs";
   import GoBack from "src/components/GoBack.svelte";
   import QueryViewer from "src/components/QueryViewer.svelte";
+  export let params: { id: string; nodeId: string };
+  export let currentTab: Tab;
 
-  document.title = `#${params.nodeId} - relationships`;
+  setTabTitle(currentTab, `#${params.nodeId} - relationships`);
 </script>
 
 <main class="Connection">

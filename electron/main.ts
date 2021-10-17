@@ -1,5 +1,5 @@
 // Modules to control application life and create native browser window
-import { app, screen, BrowserView, BrowserWindow, globalShortcut, Menu, MenuItem } from "electron";
+import { app, BrowserWindow, Menu, MenuItem } from "electron";
 const contextMenu = require('electron-context-menu');
 import neo4jConnector, { Session } from "neo4j-driver";
 import type { DBConnectionParams } from "./types/db";
@@ -8,18 +8,10 @@ import { addActionListener } from "./utils";
 import { deleteItem, getItem, setItem } from "./storage";
 
 let mainWindow: BrowserWindow, browserTabs: {
-  view: BrowserView,
-  title: string
+  id: string;
+  title: string;
+  url: string;
 }[] = [], currentTab = -1;
-function handleResize() {
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const currentView = browserTabs[currentTab].view;
-  currentView.setBounds({ x: 0, y: 0, width, height });
-}
-function handleResizeIfNecesary() {
-  if (mainWindow.isMaximized())
-    setTimeout(handleResize);
-}
 function createWindow() {
   // Create the browser window.
   mainWindow = new BrowserWindow({
@@ -32,76 +24,16 @@ function createWindow() {
     }
   });
   mainWindow.maximize();
-  mainWindow.on('maximize', handleResizeIfNecesary);
-  mainWindow.on('resize', handleResizeIfNecesary);
 
   // and load the index.html of the app.
-  mainWindow.loadURL('http://localhost:3000/#/loading');
-
-  openTab('http://localhost:3000');
-}
-function openTab(url) {
-  let browserView = new BrowserView({
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    }
-  });
+  mainWindow.loadURL('http://localhost:3000/');
 
   contextMenu({
-    window: browserView.webContents
+    window: mainWindow.webContents
   });
-
-  browserView.setAutoResize({ horizontal: true, vertical: true });
-  browserView.webContents.addListener('new-window', (event, url) => {
-    event.preventDefault()
-    openTab(url);
+  mainWindow.webContents.addListener('new-window', (event, url) => {
+    event.preventDefault();
   });
-  browserView.webContents.loadURL(url);
-  browserTabs.push({
-    view: browserView,
-    title: url
-  });
-  currentTab = browserTabs.length - 1;
-  mainWindow.setBrowserView(browserView);
-  handleResize();
-  sendTabsData();
-}
-function selectTab(id) {
-  if (id === currentTab) return;
-  currentTab = id;
-  mainWindow.setBrowserView(browserTabs[id].view);
-  sendTabsData();
-}
-function closeTab(id) {
-  browserTabs.splice(id, 1);
-  if (currentTab >= browserTabs.length)
-    currentTab--;
-  if (currentTab >= 0)
-    mainWindow.setBrowserView(browserTabs[currentTab].view);
-  sendTabsData();
-  if (!browserTabs.length)
-    mainWindow.close();
-}
-function setTabTitle(id, title) {
-  browserTabs[id].title = title;
-  sendTabsData();
-}
-
-function getTabsData() {
-  return {
-    currentTab,
-    tabs: browserTabs.map(tab => ({
-      title: tab.title
-    }))
-  };
-}
-function sendTabsData() {
-  const tabsData = getTabsData();
-  mainWindow.webContents.send("tabs", tabsData);
-  for (const browserTab of browserTabs)
-    browserTab.view.webContents.send("tabs", tabsData);
-  return tabsData;
 }
 
 // This method will be called when Electron has finished
@@ -115,43 +47,6 @@ app.whenReady().then(() => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
-
-  app.on("browser-window-focus", () => {
-    globalShortcut.register('CommandOrControl+Shift+I', () => {
-      const browserTab = browserTabs[currentTab];
-      if (browserTab)
-        browserTab.view.webContents.toggleDevTools();
-    });
-    globalShortcut.register('CommandOrControl+W', () => {
-      if (currentTab !== -1)
-        closeTab(currentTab);
-    });
-    globalShortcut.register('CommandOrControl+Shift+W', () => {
-      mainWindow.close();
-    });
-    globalShortcut.register('CommandOrControl+T', () => {
-      openTab("http://localhost:3000");
-    });
-    globalShortcut.register('CommandOrControl+Tab', () => {
-      if (currentTab !== -1)
-        selectTab((currentTab + 1) % browserTabs.length);
-    });
-    globalShortcut.register('CommandOrControl+Shift+Tab', () => {
-      if (currentTab !== -1)
-        selectTab((currentTab + browserTabs.length - 1) % browserTabs.length);
-    });
-    globalShortcut.register('CommandOrControl+R', () => {
-      if (currentTab !== -1)
-        browserTabs[currentTab].view.webContents.reload();
-    });
-    globalShortcut.register('CommandOrControl+Shift+R', () => {
-      if (currentTab !== -1)
-        browserTabs[currentTab].view.webContents.reloadIgnoringCache();
-    });
-  });
-  app.on("browser-window-blur", () => {
-    globalShortcut.unregisterAll();
-  });
 })
 
 async function getConnectionParams(id) {
@@ -206,25 +101,6 @@ addActionListener("testConnection", async (dbParams: DBConnectionParams) => {
     'RETURN 1'
   );
 })
-
-addActionListener("getTabs", async () => {
-  return sendTabsData();
-})
-
-addActionListener("openTab", async ({ url }) => {
-  openTab(url);
-});
-addActionListener("selectTab", async ({ id }) => {
-  selectTab(id);
-});
-addActionListener("closeTab", async ({ id }) => {
-  closeTab(id);
-});
-addActionListener("setTabTitle", async ({ title }, { sender }) => {
-  const id = browserTabs.indexOf(browserTabs.find(tab => tab.view.webContents === sender))
-  if (id !== -1)
-    setTabTitle(id, title);
-});
 
 addActionListener("getItem", getItem)
 

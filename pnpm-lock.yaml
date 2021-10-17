@@ -18,7 +18,6 @@ specifiers:
   svelte: ^3.37.0
   svelte-check: ^2.1.0
   svelte-preprocess: ^4.7.2
-  svelte-spa-router: ^3.2.0
   sveltestrap: ^5.6.2
   tsc-watch: ^4.5.0
   tslib: ^2.2.0
@@ -48,7 +47,6 @@ devDependencies:
   svelte: 3.43.1
   svelte-check: 2.2.7_sass@1.42.1+svelte@3.43.1
   svelte-preprocess: 4.9.8_e4d174f1a3c6f6c9a7413fc1fdd258af
-  svelte-spa-router: 3.2.0
   tsc-watch: 4.5.0_typescript@4.4.3
   tslib: 2.3.1
   typescript: 4.4.3
@@ -2086,11 +2084,6 @@ packages:
     resolution: {integrity: sha512-p3VT+cOEgxFsRRA9X4lkI1E+k2/CtnKtU4gcxyaCUreilL/vqI6CdZ3wxVUx3UOUg+gnUOQQcRI7BmSI656MYA==}
     dev: false
 
-  /regexparam/2.0.0:
-    resolution: {integrity: sha512-gJKwd2MVPWHAIFLsaYDZfyKzHNS4o7E/v8YmNf44vmeV2e4YfVoDToTOKTvE7ab68cRJ++kLuEXJBaEeJVt5ow==}
-    engines: {node: '>=8'}
-    dev: true
-
   /registry-auth-token/4.2.1:
     resolution: {integrity: sha512-6gkSb4U6aWJB4SF2ZvLb76yCBjcvufXBqvvEx1HbmKPkutswjW1xNVRY0+daljIYRbogN7O0etYSlbiaEQyMyw==}
     engines: {node: '>=6.0.0'}
@@ -2538,12 +2531,6 @@ packages:
       strip-indent: 3.0.0
       svelte: 3.43.1
       typescript: 4.4.3
-    dev: true
-
-  /svelte-spa-router/3.2.0:
-    resolution: {integrity: sha512-igemo5Vs82TGBBw+DjWt6qKameXYzNs6aDXcTxou5XbEvOjiRcAM6MLkdVRCatn6u8r42dE99bt/br7T4qe/AQ==}
-    dependencies:
-      regexparam: 2.0.0
     dev: true
 
   /svelte/3.43.1:

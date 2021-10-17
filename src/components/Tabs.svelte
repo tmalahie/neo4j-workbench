@@ -1,85 +1,114 @@
-<script lang="ts">
-  import { sendData } from "src/helpers/bridge";
-  import { onMount } from "svelte";
-
-  const { ipcRenderer } = window.require("electron");
-
-  import { Icon } from "sveltestrap";
-
-  type Tab = {
-    title: string;
-  };
-  type TabState = {
+<script lang="ts" context="module">
+  import {
+    Tab,
+    tabs,
+    currentTab,
+    closeTab,
+    openTab,
+    setTabUrl,
+    selectTab,
+    refreshTab,
+  } from "src/stores/tabs";
+  export type TabState = {
     tabs: Tab[];
     currentTab: number;
   };
+</script>
 
-  let tabs: Tab[] = [];
-  let currentTab = 0;
+<script lang="ts">
+  import { onMount } from "svelte";
 
-  function openTab(url) {
-    sendData("openTab", { url });
-  }
-  function selectTab(id) {
-    sendData("selectTab", { id });
-  }
-  function closeTab(id: number) {
-    sendData("closeTab", { id });
-  }
-  function handleAuxClick(e, i) {
+  import { Icon } from "sveltestrap";
+
+  function handleAuxClick(e, tab: Tab) {
     if (e.button === 1) {
       e.preventDefault();
-      closeTab(i);
+      closeTab(tab);
     }
   }
 
   onMount(() => {
+    function findLink(elt: HTMLElement) {
+      if (elt.localName == "a") return elt;
+      if (elt.parentNode) return findLink(elt.parentNode as HTMLElement);
+      return null;
+    }
     function linkClickListener(e) {
-      if (e.target.localName == "a" && e.ctrlKey) {
-        const url = e.target.href;
+      const $link = findLink(e.target);
+      if ($link) {
+        const url = $link.href;
         if (url.startsWith("http")) {
           e.preventDefault();
           e.stopPropagation();
-          window.open(url, "_blank").focus();
+          if (e.ctrlKey || e.metaKey) {
+            openTab(url, false);
+          } else {
+            setTabUrl($currentTab, url);
+          }
         }
       }
     }
     document.addEventListener("click", linkClickListener, true);
-
-    ipcRenderer?.on("tabs", (_event: any, response: TabState) => {
-      tabs = response.tabs;
-      currentTab = response.currentTab;
-    });
-    sendData("setTabTitle", { title: document.title });
-
-    const titleObserver = new MutationObserver(function (mutations) {
-      sendData("setTabTitle", { title: document.title });
-    });
-    titleObserver.observe(document.querySelector("title"), {
-      subtree: true,
-      characterData: true,
-      childList: true,
-    });
-
     return () => {
-      document.removeEventListener("click", linkClickListener, true);
-      titleObserver.disconnect();
+      document.removeEventListener("click", linkClickListener);
+    };
+  });
+  onMount(() => {
+    function keyListener(e: KeyboardEvent) {
+      const ctrlPressed = e.ctrlKey || e.metaKey;
+      const shiftPressed = e.shiftKey;
+      switch (e.key) {
+        case "w":
+          if (ctrlPressed) {
+            e.preventDefault();
+            closeTab($currentTab);
+          }
+          break;
+        case "r":
+          if (ctrlPressed) {
+            e.preventDefault();
+            refreshTab($currentTab);
+          }
+          break;
+        case "t":
+          if (ctrlPressed) {
+            e.preventDefault();
+            openTab("http://localhost:3000");
+          }
+          break;
+        case "Tab":
+          if (ctrlPressed) {
+            e.preventDefault();
+            let currentTabId = $tabs.indexOf(
+              $tabs.find(({ id }) => id === $currentTab.id)
+            );
+            if (shiftPressed) currentTabId--;
+            else currentTabId++;
+            currentTabId = (currentTabId + $tabs.length) % $tabs.length;
+            selectTab($tabs[currentTabId]);
+          }
+          break;
+      }
+    }
+    document.addEventListener("keydown", keyListener, true);
+    return () => {
+      document.removeEventListener("keydown", keyListener);
     };
   });
 </script>
 
 <main class="Tabs">
-  {#each tabs as tab, i}
+  {#each $tabs as tab, i}
     <div
       class="tab"
-      class:tab-active={i === currentTab}
-      on:auxclick={(e) => handleAuxClick(e, i)}
-      on:click={() => selectTab(i)}
+      class:tab-active={tab.id === $currentTab.id}
+      on:auxclick={(e) => handleAuxClick(e, tab)}
+      on:click={() => selectTab(tab)}
     >
       <div class="tab-title">
         {tab.title}
       </div>
-      <span on:click|stopPropagation={() => closeTab(i)}
+      <span on:click|stopPropagation={() => closeTab(tab)}
         ><Icon name="x-circle" /></span
       >
     </div>

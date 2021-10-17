@@ -4,7 +4,7 @@
 
     window.history.back();
 
-    setTimeout(function () {
+    setTimeout(() => {
       if (window.location.href == prevPage) window.location.href = fallbackUrl;
     }, 100);
   }

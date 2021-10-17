@@ -1,6 +1,5 @@
 <script lang="ts">
   import { AccordionItem, Icon, Spinner } from "sveltestrap";
-  import { link } from "svelte-spa-router";
   import type { DBConnectionParams } from "@common-types/db";
   import { executeQuery } from "src/helpers/db";
   import { onMount } from "svelte";
@@ -50,9 +49,8 @@
     {#if nodeLabels}
       {#each nodeLabels as nodeLabel}
         <a
-          href={`/connections/${connection.id}/${nodeLabel}`}
-          title={nodeLabel}
-          use:link><Icon name="clipboard-data" /> {nodeLabel}</a
+          href={`#/connections/${connection.id}/${nodeLabel}`}
+          title={nodeLabel}><Icon name="clipboard-data" /> {nodeLabel}</a
         >
       {/each}
     {:else if loadingLabels}

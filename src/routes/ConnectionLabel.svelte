@@ -1,18 +1,19 @@
 <script lang="ts">
-  export let params: { id: string; label: string };
+  import { setTabTitle, Tab } from "src/stores/tabs";
   import GoBack from "src/components/GoBack.svelte";
   import QueryViewer from "src/components/QueryViewer.svelte";
 
-  document.title = params.label;
+  export let params: { id: string; label: string };
+  export let currentTab: Tab;
+
+  setTabTitle(currentTab, params.label);
+  const initialQuery = {
+    labels: [params.label],
+  };
 </script>
 
 <main class="Connection">
-  <QueryViewer
-    initialQuery={{
-      labels: [params.label],
-    }}
-    connectionId={params.id}
-  >
+  <QueryViewer {initialQuery} connectionId={params.id}>
     <svelte:fragment slot="before-header">
       <h1>{params.label}</h1>
       <GoBack class="mb-2" />

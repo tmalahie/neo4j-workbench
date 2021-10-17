@@ -1,5 +1,6 @@
 <script lang="ts">
   export let params: { id?: string } = {};
+  export let currentTab: Tab;
 
   import type { DBConnectionParams } from "@common-types/db";
   import { v4 as uuid } from "uuid";
@@ -12,6 +13,7 @@
   import connections from "src/stores/connections";
   import { closeConnection } from "src/helpers/db";
   import { showError } from "src/helpers/errors";
+  import { setTabTitle, Tab } from "src/stores/tabs";
 
   let connection: DBConnectionParams;
   $: {
@@ -68,7 +70,7 @@
     testing = false;
   }
 
-  document.title = "Manage connection";
+  setTabTitle(currentTab, "Manage connection");
 </script>
 
 <div class="Connection">

@@ -1,7 +1,9 @@
 <script lang="ts">
   import GoBack from "src/components/GoBack.svelte";
+  import { setTabTitle, Tab } from "src/stores/tabs";
 
-  document.title = "404 Not Found";
+  export let currentTab: Tab;
+  setTabTitle(currentTab, "404 Not Found");
 </script>
 
 <main>

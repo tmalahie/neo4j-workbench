@@ -5,6 +5,7 @@
 
   import { Button, Icon, ListGroup, ListGroupItem, Spinner } from "sveltestrap";
   import { bootbox } from "bootbox-svelte";
+  import { setTabTitle, Tab } from "src/stores/tabs";
 
   async function handleConnectionDelete(connection: DBConnectionParams) {
     if (await bootbox.confirm(`Delete the connection "${connection.name}"?`)) {
@@ -14,7 +15,8 @@
     }
   }
 
-  document.title = "Manage connections";
+  export let currentTab: Tab;
+  setTabTitle(currentTab, "Manage connections");
 </script>
 
 <main class="Connections">
